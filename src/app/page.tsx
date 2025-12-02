@@ -132,7 +132,7 @@ export default function Home() {
         setSessionsError(null);
       } catch (err) {
         console.error('Failed to fetch active sessions:', err);
-        setSessionsError('Failed to load games. Backend might be waking up.');
+        setSessionsError(err instanceof Error ? err.message : 'Failed to load games');
       } finally {
         setIsLoadingSessions(false);
       }
@@ -528,7 +528,7 @@ export default function Home() {
                     setActiveSessions(s);
                     setSessionsError(null);
                   })
-                  .catch((e) => setSessionsError('Failed to refresh'))
+                  .catch((e) => setSessionsError(e instanceof Error ? e.message : 'Failed to refresh'))
                   .finally(() => setIsLoadingSessions(false));
               }}
               isLoading={isLoadingSessions}
