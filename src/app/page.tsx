@@ -27,6 +27,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joinSessionId, setJoinSessionId] = useState('');
+  const [isSinglePlayer, setIsSinglePlayer] = useState(false);
+  const [singlePlayerScore, setSinglePlayerScore] = useState(0);
 
   const { isConnected, joinSession: wsJoinSession, submitRound: wsSubmitRound, onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onError } = useWebSocket();
 
@@ -109,36 +111,95 @@ export default function Home() {
     }
   };
 
+  const handlePlaySolo = () => {
+    setIsSinglePlayer(true);
+    setPlayerId('solo-player');
+    setUsername('You');
+
+    // Generate random start color
+    const r = Math.floor(Math.random() * 256);
+    const g = Math.floor(Math.random() * 256);
+    const b = Math.floor(Math.random() * 256);
+    const startColor = rgbToHex(r, g, b);
+
+    setTargetColor(startColor);
+    setCurrentRound(1);
+    setSinglePlayerScore(0);
+    setGamePhase('playing');
+
+    // Create initial leaderboard entry for solo player
+    setLeaderboard([{
+      playerId: 'solo-player',
+      username: 'You',
+      bestScore: 0,
+      completedRounds: 0,
+      isFinished: false
+    }]);
+  };
+
   const handleSubmitRound = async (
     selectedColor: { r: number; g: number; b: number },
     distance: number,
     score: number
   ) => {
-    if (!session || !playerId) return;
+    if (!playerId) return;
 
     try {
       setIsLoading(true);
 
-      const selectedHex = rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b);
+      if (isSinglePlayer) {
+        // Handle single player logic
+        const newScore = Math.max(singlePlayerScore, score);
+        setSinglePlayerScore(newScore);
 
-      // Submit via WebSocket
-      wsSubmitRound(session.id, playerId, {
-        roundNumber: currentRound,
-        targetColor,
-        selectedColor: selectedHex,
-        distance,
-        score,
-      });
+        // Update local leaderboard
+        setLeaderboard([{
+          playerId: 'solo-player',
+          username: 'You',
+          bestScore: newScore,
+          completedRounds: currentRound,
+          isFinished: currentRound >= 3
+        }]);
 
-      // Move to next round or finish
-      if (currentRound < 3) {
-        setCurrentRound(currentRound + 1);
-        // Generate new target color that's significantly different from current
-        const newTargetColor = generateDistinctColor(targetColor, 50);
-        setTargetColor(newTargetColor);
+        if (currentRound < 3) {
+          setCurrentRound(currentRound + 1);
+          const newTargetColor = generateDistinctColor(targetColor, 50);
+          setTargetColor(newTargetColor);
+        } else {
+          setWinner({
+            playerId: 'solo-player',
+            username: 'You',
+            bestScore: newScore,
+            completedRounds: 3,
+            isFinished: true
+          });
+          setGamePhase('results');
+        }
       } else {
-        // All rounds complete
-        setGamePhase('results');
+        // Handle multiplayer logic
+        if (!session) return;
+
+        const selectedHex = rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b);
+
+        // Submit via WebSocket
+        wsSubmitRound(session.id, playerId, {
+          roundNumber: currentRound,
+          targetColor,
+          selectedColor: selectedHex,
+          distance,
+          score,
+        });
+
+        // Move to next round or finish
+        if (currentRound < 3) {
+          setCurrentRound(currentRound + 1);
+          // Generate new target color that's significantly different from current
+          const newTargetColor = generateDistinctColor(targetColor, 50);
+          setTargetColor(newTargetColor);
+        } else {
+          // All rounds complete
+          setGamePhase('results');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit round');
@@ -156,6 +217,8 @@ export default function Home() {
     setLeaderboard([]);
     setWinner(null);
     setError(null);
+    setIsSinglePlayer(false);
+    setSinglePlayerScore(0);
   };
 
   return (
@@ -215,6 +278,18 @@ export default function Home() {
                     Join Game
                   </button>
                 </div>
+
+                <div className="divider">
+                  <span>or</span>
+                </div>
+
+                <button
+                  className="solo-button"
+                  onClick={handlePlaySolo}
+                  disabled={isLoading}
+                >
+                  Play Solo Mode
+                </button>
               </div>
 
               {session && (
@@ -266,7 +341,7 @@ export default function Home() {
         )}
 
         {/* Playing Phase */}
-        {gamePhase === 'playing' && session && playerId && (
+        {gamePhase === 'playing' && playerId && (
           <div className="game-container">
             <div className="game-content">
               <GameBoard
@@ -279,7 +354,7 @@ export default function Home() {
             </div>
 
             <aside className="game-sidebar">
-              {session && (
+              {!isSinglePlayer && session && (
                 <div className="session-card glass">
                   <div className="session-header">Session Info</div>
                   <div className="session-details">
@@ -474,6 +549,30 @@ export default function Home() {
 
         .secondary-button:disabled {
           opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .solo-button {
+          padding: var(--spacing-lg) var(--spacing-2xl);
+          font-size: var(--font-size-lg);
+          font-weight: 700;
+          color: var(--color-primary);
+          background: white;
+          border: 2px solid var(--color-primary);
+          border-radius: var(--radius-xl);
+          cursor: pointer;
+          transition: all var(--transition-base);
+          box-shadow: var(--shadow-md);
+        }
+
+        .solo-button:hover:not(:disabled) {
+          background: var(--color-bg-card-hover);
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-lg);
+        }
+
+        .solo-button:disabled {
+          opacity: 0.6;
           cursor: not-allowed;
         }
 
