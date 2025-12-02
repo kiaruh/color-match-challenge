@@ -11,10 +11,15 @@ export class SessionManager {
         return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
 
+    // Generate short random ID
+    private generateSessionId(): string {
+        return Math.random().toString(36).substring(2, 10).toUpperCase();
+    }
+
     // Create a new session
     createSession(startColor?: string, endColor?: string, password?: string, maxPlayers: number = 4): Session {
         const session: Session = {
-            id: uuidv4(),
+            id: this.generateSessionId(),
             startColor: startColor || this.generateRandomColor(),
             endColor: endColor || this.generateRandomColor(),
             createdAt: new Date().toISOString(),

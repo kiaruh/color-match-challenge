@@ -62,34 +62,43 @@ export default function Home() {
 
   // Set up WebSocket event listeners
   useEffect(() => {
-    onLeaderboardUpdate((data) => {
+    const cleanupLeaderboard = onLeaderboardUpdate((data) => {
       setLeaderboard(data.leaderboard);
       if (data.winner) {
         setWinner(data.winner);
       }
     });
 
-    onPlayerJoined((data) => {
+    const cleanupPlayerJoined = onPlayerJoined((data) => {
       console.log('Player joined:', data);
     });
 
-    onSessionComplete((data) => {
+    const cleanupSessionComplete = onSessionComplete((data) => {
       setWinner(data.winner);
       setGamePhase('results');
     });
 
-    onChatMessage((message) => {
+    const cleanupChatMessage = onChatMessage((message) => {
       setChatMessages(prev => [...prev, message]);
     });
 
-    onPlayerQuit((data) => {
+    const cleanupPlayerQuit = onPlayerQuit((data) => {
       console.log('Player quit:', data);
       // Could add a toast notification here
     });
 
-    onError((error) => {
+    const cleanupError = onError((error) => {
       setError(error.message);
     });
+
+    return () => {
+      cleanupLeaderboard();
+      cleanupPlayerJoined();
+      cleanupSessionComplete();
+      cleanupChatMessage();
+      cleanupPlayerQuit();
+      cleanupError();
+    };
   }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onChatMessage, onPlayerQuit, onError]);
 
   // Poll for active sessions on landing page

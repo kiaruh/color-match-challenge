@@ -11,12 +11,12 @@ interface UseWebSocketReturn {
     isConnected: boolean;
     joinSession: (sessionId: string, playerId: string) => void;
     submitRound: (sessionId: string, playerId: string, roundData: RoundData) => void;
-    onLeaderboardUpdate: (callback: (data: LeaderboardResponse) => void) => void;
-    onPlayerJoined: (callback: (data: { playerId: string; username: string }) => void) => void;
-    onSessionComplete: (callback: (data: { winner: any }) => void) => void;
-    onChatMessage: (callback: (data: ChatMessage) => void) => void;
-    onPlayerQuit: (callback: (data: { playerId: string }) => void) => void;
-    onError: (callback: (error: { message: string }) => void) => void;
+    onLeaderboardUpdate: (callback: (data: LeaderboardResponse) => void) => () => void;
+    onPlayerJoined: (callback: (data: { playerId: string; username: string }) => void) => () => void;
+    onSessionComplete: (callback: (data: { winner: any }) => void) => () => void;
+    onChatMessage: (callback: (data: ChatMessage) => void) => () => void;
+    onPlayerQuit: (callback: (data: { playerId: string }) => void) => () => void;
+    onError: (callback: (error: { message: string }) => void) => () => void;
     sendChatMessage: (sessionId: string, playerId: string, username: string, message: string) => void;
     quitSession: (sessionId: string, playerId: string) => void;
 }
@@ -105,37 +105,61 @@ export function useWebSocket(): UseWebSocketReturn {
     const onLeaderboardUpdate = (callback: (data: LeaderboardResponse) => void) => {
         if (socketRef.current) {
             socketRef.current.on('leaderboard_updated', callback);
+            return () => {
+                socketRef.current?.off('leaderboard_updated', callback);
+            };
         }
+        return () => { };
     };
 
     const onPlayerJoined = (callback: (data: { playerId: string; username: string }) => void) => {
         if (socketRef.current) {
             socketRef.current.on('player_joined', callback);
+            return () => {
+                socketRef.current?.off('player_joined', callback);
+            };
         }
+        return () => { };
     };
 
     const onSessionComplete = (callback: (data: { winner: any }) => void) => {
         if (socketRef.current) {
             socketRef.current.on('session_complete', callback);
+            return () => {
+                socketRef.current?.off('session_complete', callback);
+            };
         }
+        return () => { };
     };
 
     const onChatMessage = (callback: (data: ChatMessage) => void) => {
         if (socketRef.current) {
             socketRef.current.on('chat_message', callback);
+            return () => {
+                socketRef.current?.off('chat_message', callback);
+            };
         }
+        return () => { };
     };
 
     const onPlayerQuit = (callback: (data: { playerId: string }) => void) => {
         if (socketRef.current) {
             socketRef.current.on('player_quit', callback);
+            return () => {
+                socketRef.current?.off('player_quit', callback);
+            };
         }
+        return () => { };
     };
 
     const onError = (callback: (error: { message: string }) => void) => {
         if (socketRef.current) {
             socketRef.current.on('error', callback);
+            return () => {
+                socketRef.current?.off('error', callback);
+            };
         }
+        return () => { };
     };
 
     return {
