@@ -26,13 +26,14 @@ export class SessionManager {
             status: 'active',
             maxPlayers,
             password,
+            currentRound: 1,
         };
 
         const stmt = db.prepare(`
-      INSERT INTO sessions (id, startColor, endColor, createdAt, status, maxPlayers, password)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sessions (id, startColor, endColor, createdAt, status, maxPlayers, password, currentRound)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(session.id, session.startColor, session.endColor, session.createdAt, session.status, session.maxPlayers, session.password);
+        stmt.run(session.id, session.startColor, session.endColor, session.createdAt, session.status, session.maxPlayers, session.password, session.currentRound);
 
         return session;
     }
@@ -97,12 +98,14 @@ export class SessionManager {
             joinedAt: new Date().toISOString(),
             completedRounds: 0,
             bestScore: 0,
+            totalScore: 0,
             status: 'active',
+            isWaiting: 0,
         };
 
         const stmt = db.prepare(`
-      INSERT INTO players (id, sessionId, username, joinedAt, completedRounds, bestScore, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO players (id, sessionId, username, joinedAt, completedRounds, bestScore, totalScore, status, isWaiting)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
         stmt.run(
             player.id,
@@ -111,7 +114,9 @@ export class SessionManager {
             player.joinedAt,
             player.completedRounds,
             player.bestScore,
-            player.status
+            player.totalScore,
+            player.status,
+            player.isWaiting
         );
 
         // Track analytics
@@ -148,17 +153,18 @@ export class SessionManager {
         selectedColor: string,
         distance: number,
         score: number
-    ): { roundId: string; bestScore: number; completedRounds: number; isSessionComplete: boolean } {
+    ): { roundId: string; bestScore: number; totalScore: number; completedRounds: number; isWaiting: boolean; allPlayersReady: boolean; nextRound?: number } {
         const player = this.getPlayer(playerId);
         if (!player) {
             throw new Error('Player not found');
         }
 
-        if (player.completedRounds >= 3) {
-            throw new Error('Player has already completed all rounds');
+        const session = this.getSession(sessionId);
+        if (!session) {
+            throw new Error('Session not found');
         }
 
-        // Create round
+        // Create round record
         const round: Round = {
             id: uuidv4(),
             playerId,
@@ -190,14 +196,15 @@ export class SessionManager {
         // Update player stats
         const newCompletedRounds = player.completedRounds + 1;
         const newBestScore = Math.max(player.bestScore, score);
-        const newStatus = newCompletedRounds >= 3 ? 'finished' : 'active';
+        const newTotalScore = player.totalScore + score;
 
+        // Mark player as waiting for others to finish this round
         const updateStmt = db.prepare(`
       UPDATE players 
-      SET completedRounds = ?, bestScore = ?, status = ?
+      SET completedRounds = ?, bestScore = ?, totalScore = ?, isWaiting = 1
       WHERE id = ?
     `);
-        updateStmt.run(newCompletedRounds, newBestScore, newStatus, playerId);
+        updateStmt.run(newCompletedRounds, newBestScore, newTotalScore, playerId);
 
         // Track analytics
         this.trackEvent(sessionId, playerId, 'round_complete', {
@@ -206,14 +213,67 @@ export class SessionManager {
             distance,
         });
 
-        // Check if session is complete (all players finished)
-        const isSessionComplete = this.checkSessionComplete(sessionId);
+        // Check if all players have completed the current round
+        const allPlayersReady = this.checkAllPlayersReady(sessionId, session.currentRound);
 
         return {
             roundId: round.id,
             bestScore: newBestScore,
+            totalScore: newTotalScore,
             completedRounds: newCompletedRounds,
-            isSessionComplete,
+            isWaiting: !allPlayersReady,
+            allPlayersReady,
+            nextRound: allPlayersReady ? session.currentRound + 1 : undefined,
+        };
+    }
+
+    // Check if all players have completed the current round
+    private checkAllPlayersReady(sessionId: string, currentRound: number): boolean {
+        const stmt = db.prepare(`
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN isWaiting = 1 THEN 1 ELSE 0 END) as waiting
+      FROM players
+      WHERE sessionId = ? AND status = 'active'
+    `);
+        const result = stmt.get(sessionId) as { total: number; waiting: number };
+
+        // All players ready if everyone is waiting
+        return result.total > 0 && result.total === result.waiting;
+    }
+
+    // Advance to next round (reset waiting states and increment round)
+    advanceToNextRound(sessionId: string): { newRound: number; newColors: { startColor: string; endColor: string } } {
+        const session = this.getSession(sessionId);
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        const newRound = session.currentRound + 1;
+        const newStartColor = this.generateRandomColor();
+        const newEndColor = this.generateRandomColor();
+
+        // Update session round and colors
+        const sessionStmt = db.prepare(`
+      UPDATE sessions
+      SET currentRound = ?, startColor = ?, endColor = ?
+      WHERE id = ?
+    `);
+        sessionStmt.run(newRound, newStartColor, newEndColor, sessionId);
+
+        // Reset all players' waiting state
+        const playersStmt = db.prepare(`
+      UPDATE players
+      SET isWaiting = 0
+      WHERE sessionId = ?
+    `);
+        playersStmt.run(sessionId);
+
+        return {
+            newRound,
+            newColors: {
+                startColor: newStartColor,
+                endColor: newEndColor,
+            },
         };
     }
 
@@ -234,10 +294,10 @@ export class SessionManager {
     // Get leaderboard for session
     getLeaderboard(sessionId: string): { leaderboard: LeaderboardEntry[]; winner: LeaderboardEntry | null } {
         const stmt = db.prepare(`
-      SELECT id as playerId, username, bestScore, completedRounds, status
+      SELECT id as playerId, username, bestScore, totalScore, completedRounds, status, isWaiting
       FROM players
       WHERE sessionId = ?
-      ORDER BY bestScore DESC, completedRounds DESC
+      ORDER BY totalScore DESC, bestScore DESC, completedRounds DESC
     `);
         const players = stmt.all(sessionId) as Array<Player & { playerId: string }>;
 
@@ -245,13 +305,14 @@ export class SessionManager {
             playerId: p.playerId,
             username: p.username,
             bestScore: p.bestScore,
+            totalScore: p.totalScore,
             completedRounds: p.completedRounds,
             isFinished: p.status === 'finished',
+            isWaiting: p.isWaiting === 1,
         }));
 
-        // Determine winner (highest score among finished players)
-        const finishedPlayers = leaderboard.filter((p) => p.isFinished);
-        const winner = finishedPlayers.length > 0 ? finishedPlayers[0] : null;
+        // In continuous mode, there's no permanent winner - just current leader
+        const winner = leaderboard.length > 0 ? leaderboard[0] : null;
 
         return { leaderboard, winner };
     }

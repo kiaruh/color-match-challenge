@@ -46,8 +46,10 @@ export interface LeaderboardEntry {
     playerId: string;
     username: string;
     bestScore: number;
+    totalScore: number;
     completedRounds: number;
     isFinished: boolean;
+    isWaiting: boolean;
 }
 
 export interface LeaderboardResponse {

@@ -25,7 +25,8 @@ export function initializeDatabase() {
       createdAt TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
       maxPlayers INTEGER DEFAULT 4,
-      password TEXT
+      password TEXT,
+      currentRound INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS players (
@@ -35,7 +36,9 @@ export function initializeDatabase() {
       joinedAt TEXT NOT NULL,
       completedRounds INTEGER NOT NULL DEFAULT 0,
       bestScore INTEGER NOT NULL DEFAULT 0,
+      totalScore INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
+      isWaiting INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (sessionId) REFERENCES sessions(id)
     );
 

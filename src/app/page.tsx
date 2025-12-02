@@ -19,7 +19,7 @@ import GameControls from '../components/GameControls';
 import { ChatMessage, ActiveSession, getActiveSessions, getLeaderboard, getChatHistory } from '../utils/api';
 import LiveGamesList from '../components/LiveGamesList';
 
-type GamePhase = 'landing' | 'playing' | 'results';
+type GamePhase = 'landing' | 'playing' | 'waiting';
 
 export default function Home() {
   const [gamePhase, setGamePhase] = useState<GamePhase>('landing');
@@ -54,6 +54,7 @@ export default function Home() {
     onLeaderboardUpdate,
     onPlayerJoined,
     onSessionComplete,
+    onNextRound,
     onChatMessage,
     onPlayerQuit,
     onSessionsUpdate,
@@ -76,8 +77,15 @@ export default function Home() {
     });
 
     const cleanupSessionComplete = onSessionComplete((data) => {
-      setWinner(data.winner);
-      setGamePhase('results');
+      // In continuous mode, session_complete is not used
+      console.log('Session complete (legacy event):', data);
+    });
+
+    const cleanupNextRound = onNextRound((data) => {
+      // Auto-advance to next round
+      setCurrentRound(data.roundNumber);
+      setTargetColor(data.targetColor);
+      setGamePhase('playing');
     });
 
     const cleanupChatMessage = onChatMessage((message) => {
@@ -104,12 +112,13 @@ export default function Home() {
       cleanupLeaderboard();
       cleanupPlayerJoined();
       cleanupSessionComplete();
+      cleanupNextRound();
       cleanupChatMessage();
       cleanupPlayerQuit();
       cleanupSessionsUpdate();
       cleanupError();
     };
-  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onChatMessage, onPlayerQuit, onSessionsUpdate, onError]);
+  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onNextRound, onChatMessage, onPlayerQuit, onSessionsUpdate, onError]);
 
   // Poll for active sessions on landing page
   useEffect(() => {
@@ -163,7 +172,6 @@ export default function Home() {
         setLeaderboard(leaderboardData.leaderboard);
         if (leaderboardData.winner) {
           setWinner(leaderboardData.winner);
-          setGamePhase('results');
         }
 
         // Fetch chat history (optional, to ensure sync)
@@ -266,8 +274,10 @@ export default function Home() {
       playerId: 'solo-player',
       username: 'You',
       bestScore: 0,
+      totalScore: 0,
       completedRounds: 0,
-      isFinished: false
+      isFinished: false,
+      isWaiting: false
     }]);
   };
 
@@ -283,31 +293,37 @@ export default function Home() {
 
       if (isSinglePlayer) {
         // Handle single player logic
-        const newScore = Math.max(singlePlayerScore, score);
-        setSinglePlayerScore(newScore);
+        const newBestScore = Math.max(singlePlayerScore, score);
+        setSinglePlayerScore(newBestScore);
 
-        // Update local leaderboard
+        // Update leaderboard
         setLeaderboard([{
           playerId: 'solo-player',
           username: 'You',
-          bestScore: newScore,
+          bestScore: newBestScore,
+          totalScore: newBestScore,
           completedRounds: currentRound,
-          isFinished: currentRound >= 3
+          isFinished: currentRound >= 3,
+          isWaiting: false
         }]);
 
-        if (currentRound < 3) {
+        setWinner({
+          playerId: 'solo-player',
+          username: 'You',
+          bestScore: newBestScore,
+          totalScore: newBestScore,
+          completedRounds: currentRound,
+          isFinished: true,
+          isWaiting: false
+        });
+
+        // In continuous mode, move to waiting state instead of results
+        if (currentRound >= 3) {
+          setGamePhase('waiting');
+        } else {
           setCurrentRound(currentRound + 1);
           const newTargetColor = generateDistinctColor(targetColor, 50);
           setTargetColor(newTargetColor);
-        } else {
-          setWinner({
-            playerId: 'solo-player',
-            username: 'You',
-            bestScore: newScore,
-            completedRounds: 3,
-            isFinished: true
-          });
-          setGamePhase('results');
         }
       } else {
         // Handle multiplayer logic
@@ -331,8 +347,8 @@ export default function Home() {
           const newTargetColor = generateDistinctColor(targetColor, 50);
           setTargetColor(newTargetColor);
         } else {
-          // All rounds complete
-          setGamePhase('results');
+          // In continuous mode, move to waiting state
+          setGamePhase('waiting');
         }
       }
     } catch (err) {
@@ -649,30 +665,22 @@ export default function Home() {
         )
         }
 
-        {/* Results Phase */}
+        {/* Waiting Phase - Player finished, waiting for others */}
         {
-          gamePhase === 'results' && (
-            <div className="results-container animate-scaleIn">
-              <div className="results-card glass">
-                <h2 className="results-title">Game Complete!</h2>
-
-                {winner && (
-                  <div className="winner-section">
-                    <div className="winner-crown">👑</div>
-                    <div className="winner-text">{winner.username} wins!</div>
-                    <div className="winner-points">{winner.bestScore} points</div>
-                  </div>
-                )}
+          gamePhase === 'waiting' && (
+            <div className="waiting-container animate-scaleIn">
+              <div className="waiting-card glass">
+                <div className="waiting-icon">⏳</div>
+                <h2 className="waiting-title">Waiting for Other Players...</h2>
+                <p className="waiting-text">
+                  You've completed this round! The next round will start automatically when all players finish.
+                </p>
 
                 <Leaderboard
                   entries={leaderboard}
                   currentPlayerId={playerId || undefined}
                   winner={winner}
                 />
-
-                <button className="primary-button" onClick={handlePlayAgain}>
-                  Play Again
-                </button>
               </div>
             </div>
           )
@@ -1029,52 +1037,40 @@ export default function Home() {
           font-weight: 600;
         }
 
-        .results-container {
-          width: 100%;
-          max-width: 600px;
-        }
-
-        .results-card {
-          padding: var(--spacing-3xl);
-          border-radius: var(--radius-2xl);
+        .waiting-container {
           display: flex;
-          flex-direction: column;
-          gap: var(--spacing-2xl);
+          justify-content: center;
           align-items: center;
+          min-height: 60vh;
         }
 
-        .results-title {
+        .waiting-card {
+          max-width: 600px;
+          width: 100%;
+          padding: var(--spacing-3xl);
+          text-align: center;
+        }
+
+        .waiting-icon {
+          font-size: 4rem;
+          margin-bottom: var(--spacing-lg);
+          animation: pulse 2s ease-in-out infinite;
+        }
+
+        .waiting-title {
           font-size: var(--font-size-3xl);
           font-weight: 700;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-
-        .winner-section {
-          text-align: center;
-          padding: var(--spacing-2xl);
+          margin: 0 0 var(--spacing-md) 0;
           background: var(--gradient-primary);
-          border-radius: var(--radius-xl);
-          width: 100%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
-        .winner-crown {
-          font-size: var(--font-size-5xl);
-          margin-bottom: var(--spacing-md);
-          animation: bounce 1s ease-in-out infinite;
-        }
-
-        .winner-text {
-          font-size: var(--font-size-2xl);
-          font-weight: 800;
-          color: white;
-          margin-bottom: var(--spacing-sm);
-        }
-
-        .winner-points {
-          font-size: var(--font-size-xl);
-          color: rgba(255, 255, 255, 0.9);
-          font-family: 'Courier New', monospace;
+        .waiting-text {
+          font-size: var(--font-size-lg);
+          color: var(--color-text-secondary);
+          margin-bottom: var(--spacing-xl);
         }
 
         @media (max-width: 1024px) {

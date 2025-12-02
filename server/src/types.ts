@@ -6,6 +6,7 @@ export interface Session {
     status: 'active' | 'completed';
     maxPlayers?: number;
     password?: string;
+    currentRound: number;
 }
 
 export interface Player {
@@ -15,7 +16,9 @@ export interface Player {
     joinedAt: string;
     completedRounds: number;
     bestScore: number;
+    totalScore: number;
     status: 'active' | 'finished';
+    isWaiting: number; // 0 or 1 (SQLite boolean)
 }
 
 export interface Round {
@@ -43,8 +46,10 @@ export interface LeaderboardEntry {
     playerId: string;
     username: string;
     bestScore: number;
+    totalScore: number;
     completedRounds: number;
     isFinished: boolean;
+    isWaiting: boolean;
 }
 
 export interface AnalyticsEvent {

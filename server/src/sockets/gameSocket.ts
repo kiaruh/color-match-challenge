@@ -63,10 +63,14 @@ export const setupGameSocket = (io: SocketIOServer) => {
                 const leaderboardData = sessionManager.getLeaderboard(sessionId);
                 io.to(sessionId).emit('leaderboard_updated', leaderboardData);
 
-                // If session is complete, notify all players
-                if (result.isSessionComplete) {
-                    io.to(sessionId).emit('session_complete', {
-                        winner: leaderboardData.winner,
+                // If all players are ready, advance to next round
+                if (result.allPlayersReady) {
+                    const nextRoundData = sessionManager.advanceToNextRound(sessionId);
+
+                    // Broadcast next round to all players
+                    io.to(sessionId).emit('next_round', {
+                        roundNumber: nextRoundData.newRound,
+                        targetColor: nextRoundData.newColors.startColor,
                     });
                 }
 

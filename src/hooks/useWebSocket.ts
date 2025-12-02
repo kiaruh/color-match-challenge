@@ -14,6 +14,7 @@ interface UseWebSocketReturn {
     onLeaderboardUpdate: (callback: (data: LeaderboardResponse) => void) => () => void;
     onPlayerJoined: (callback: (data: { playerId: string; username: string }) => void) => () => void;
     onSessionComplete: (callback: (data: { winner: any }) => void) => () => void;
+    onNextRound: (callback: (data: { roundNumber: number; targetColor: string }) => void) => () => void;
     onChatMessage: (callback: (data: ChatMessage) => void) => () => void;
     onPlayerQuit: (callback: (data: { playerId: string }) => void) => () => void;
     onSessionsUpdate: (callback: () => void) => () => void;
@@ -133,6 +134,16 @@ export function useWebSocket(): UseWebSocketReturn {
         return () => { };
     };
 
+    const onNextRound = (callback: (data: { roundNumber: number; targetColor: string }) => void) => {
+        if (socketRef.current) {
+            socketRef.current.on('next_round', callback);
+            return () => {
+                socketRef.current?.off('next_round', callback);
+            };
+        }
+        return () => { };
+    };
+
     const onChatMessage = (callback: (data: ChatMessage) => void) => {
         if (socketRef.current) {
             socketRef.current.on('chat_message', callback);
@@ -181,6 +192,7 @@ export function useWebSocket(): UseWebSocketReturn {
         onLeaderboardUpdate,
         onPlayerJoined,
         onSessionComplete,
+        onNextRound,
         onChatMessage,
         onPlayerQuit,
         onSessionsUpdate,
