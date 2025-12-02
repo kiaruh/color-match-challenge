@@ -55,6 +55,7 @@ export default function Home() {
     onSessionComplete,
     onChatMessage,
     onPlayerQuit,
+    onSessionsUpdate,
     onError,
     sendChatMessage,
     quitSession
@@ -87,6 +88,13 @@ export default function Home() {
       // Could add a toast notification here
     });
 
+    const cleanupSessionsUpdate = onSessionsUpdate(() => {
+      // Refresh active sessions when notified
+      if (gamePhase === 'landing') {
+        getActiveSessions().then(setActiveSessions).catch(console.error);
+      }
+    });
+
     const cleanupError = onError((error) => {
       setError(error.message);
     });
@@ -97,9 +105,10 @@ export default function Home() {
       cleanupSessionComplete();
       cleanupChatMessage();
       cleanupPlayerQuit();
+      cleanupSessionsUpdate();
       cleanupError();
     };
-  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onChatMessage, onPlayerQuit, onError]);
+  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onChatMessage, onPlayerQuit, onSessionsUpdate, onError]);
 
   // Poll for active sessions on landing page
   useEffect(() => {
@@ -133,7 +142,7 @@ export default function Home() {
     const interval = setInterval(async () => {
       const sessions = await getActiveSessions();
       setActiveSessions(sessions);
-    }, 5000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [gamePhase]);

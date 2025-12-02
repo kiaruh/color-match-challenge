@@ -16,6 +16,7 @@ interface UseWebSocketReturn {
     onSessionComplete: (callback: (data: { winner: any }) => void) => () => void;
     onChatMessage: (callback: (data: ChatMessage) => void) => () => void;
     onPlayerQuit: (callback: (data: { playerId: string }) => void) => () => void;
+    onSessionsUpdate: (callback: () => void) => () => void;
     onError: (callback: (error: { message: string }) => void) => () => void;
     sendChatMessage: (sessionId: string, playerId: string, username: string, message: string) => void;
     quitSession: (sessionId: string, playerId: string) => void;
@@ -152,6 +153,16 @@ export function useWebSocket(): UseWebSocketReturn {
         return () => { };
     };
 
+    const onSessionsUpdate = (callback: () => void) => {
+        if (socketRef.current) {
+            socketRef.current.on('sessions_updated', callback);
+            return () => {
+                socketRef.current?.off('sessions_updated', callback);
+            };
+        }
+        return () => { };
+    };
+
     const onError = (callback: (error: { message: string }) => void) => {
         if (socketRef.current) {
             socketRef.current.on('error', callback);
@@ -172,6 +183,7 @@ export function useWebSocket(): UseWebSocketReturn {
         onSessionComplete,
         onChatMessage,
         onPlayerQuit,
+        onSessionsUpdate,
         onError,
         sendChatMessage,
         quitSession,

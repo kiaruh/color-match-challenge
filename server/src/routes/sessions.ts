@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { SessionManager } from '../services/SessionManager';
+import { broadcastSessionsUpdate } from '../sockets/gameSocket';
 
 const router = Router();
 const sessionManager = new SessionManager();
@@ -9,6 +10,10 @@ router.post('/sessions', (req: Request, res: Response) => {
     try {
         const { startColor, endColor, password, maxPlayers } = req.body;
         const session = sessionManager.createSession(startColor, endColor, password, maxPlayers);
+
+        // Broadcast update
+        broadcastSessionsUpdate();
+
         // Don't send password back to client
         const { password: _, ...sessionWithoutPassword } = session;
         res.json(sessionWithoutPassword);
@@ -83,6 +88,9 @@ router.post('/sessions/:sessionId/join', (req: Request, res: Response) => {
         }
 
         const player = sessionManager.joinSession(sessionId, username, password);
+
+        // Broadcast update
+        broadcastSessionsUpdate();
 
         res.json({
             playerId: player.id,

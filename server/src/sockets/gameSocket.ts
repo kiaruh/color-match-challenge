@@ -3,7 +3,17 @@ import { SessionManager } from '../services/SessionManager';
 
 const sessionManager = new SessionManager();
 
-export function setupGameSocket(io: SocketIOServer) {
+let ioInstance: SocketIOServer | null = null;
+
+export const broadcastSessionsUpdate = () => {
+    if (ioInstance) {
+        ioInstance.emit('sessions_updated');
+    }
+};
+
+export const setupGameSocket = (io: SocketIOServer) => {
+    ioInstance = io;
+
     io.on('connection', (socket: Socket) => {
         console.log(`🔌 Client connected: ${socket.id}`);
 
@@ -91,7 +101,11 @@ export function setupGameSocket(io: SocketIOServer) {
             }
 
             socket.leave(sessionId);
-            socket.to(sessionId).emit('player_quit', { playerId });
+            // Broadcast to room
+            io.to(sessionId).emit('player_quit', { playerId });
+
+            // Broadcast global update for live games list
+            broadcastSessionsUpdate();
             console.log(`👋 Player ${playerId} quit session ${sessionId}`);
         });
 
