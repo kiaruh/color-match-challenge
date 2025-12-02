@@ -16,14 +16,22 @@ const httpServer = createServer(app);
 // Socket.IO setup
 const io = new SocketIOServer(httpServer, {
     cors: {
-        origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+        origin: [
+            'http://localhost:3000',
+            'https://color-match-challenge.vercel.app'
+        ],
         methods: ['GET', 'POST'],
+        credentials: true,
     },
 });
 
 // Middleware
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: [
+        'http://localhost:3000',
+        'https://color-match-challenge.vercel.app'
+    ],
+    credentials: true,
 }));
 app.use(express.json());
 
