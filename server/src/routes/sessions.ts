@@ -22,24 +22,6 @@ router.post('/sessions', (req: Request, res: Response) => {
     }
 });
 
-// Get session details
-router.get('/sessions/:sessionId', (req: Request, res: Response) => {
-    try {
-        const { sessionId } = req.params;
-        const session = sessionManager.getSession(sessionId);
-
-        if (!session) {
-            return res.status(404).json({ error: 'Session not found' });
-        }
-
-        // Don't send password to client
-        const { password: _, ...sessionWithoutPassword } = session;
-        res.json(sessionWithoutPassword);
-    } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
-
 // Get most recent active session
 router.get('/sessions-active/latest', (req: Request, res: Response) => {
     try {
@@ -72,6 +54,24 @@ router.get('/sessions/active', (req: Request, res: Response) => {
         });
 
         res.json(sanitizedSessions);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Get session details
+router.get('/sessions/:sessionId', (req: Request, res: Response) => {
+    try {
+        const { sessionId } = req.params;
+        const session = sessionManager.getSession(sessionId);
+
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        // Don't send password to client
+        const { password: _, ...sessionWithoutPassword } = session;
+        res.json(sessionWithoutPassword);
     } catch (error) {
         res.status(500).json({ error: (error as Error).message });
     }
