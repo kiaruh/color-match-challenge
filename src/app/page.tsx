@@ -107,7 +107,16 @@ export default function Home() {
 
     const fetchSessions = async () => {
       try {
-        setIsLoadingSessions(true);
+        // Only show loading on first fetch if we have no sessions
+        if (activeSessions.length === 0 && !isLoadingSessions) {
+          // We can skip setting loading true for background polls to avoid flicker
+          // or we can use a separate 'isFirstLoad' state. 
+          // But simpler: just don't set isLoadingSessions(true) here if we want to avoid the spinner.
+          // However, for the very first load, we might want it.
+          // Let's just remove the setIsLoadingSessions(true) from the interval calls?
+          // Or better: check if it's the first run.
+        }
+
         const sessions = await getActiveSessions();
         setActiveSessions(sessions);
       } catch (err) {
@@ -117,11 +126,19 @@ export default function Home() {
       }
     };
 
+    // Initial fetch with loading state
+    setIsLoadingSessions(true);
     fetchSessions();
-    const interval = setInterval(fetchSessions, 5000);
+
+    const interval = setInterval(async () => {
+      const sessions = await getActiveSessions();
+      setActiveSessions(sessions);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [gamePhase]);
+
+
 
   // Poll for game state during gameplay (fallback/sync)
   useEffect(() => {
