@@ -10,6 +10,7 @@ interface GameBoardProps {
   totalRounds: number;
   onSubmit: (selectedColor: { r: number; g: number; b: number }, distance: number, score: number) => void;
   isSubmitting?: boolean;
+  disabled?: boolean;
 }
 
 export default function GameBoard({
@@ -18,6 +19,7 @@ export default function GameBoard({
   totalRounds,
   onSubmit,
   isSubmitting = false,
+  disabled = false,
 }: GameBoardProps) {
   const [selectedColor, setSelectedColor] = useState<{ r: number; g: number; b: number } | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -115,7 +117,7 @@ export default function GameBoard({
       <div className={`picker-section animate-fadeIn ${showResult ? 'disabled' : ''}`}>
         <ColorPicker
           onColorSelect={handleColorSelect}
-          disabled={showResult || isSubmitting}
+          disabled={showResult || isSubmitting || disabled}
         />
       </div>
 

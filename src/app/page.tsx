@@ -94,7 +94,8 @@ export default function Home() {
 
     const cleanupPlayerQuit = onPlayerQuit((data) => {
       console.log('Player quit:', data);
-      // Could add a toast notification here
+      // Remove player from leaderboard to prevent ghost players
+      setLeaderboard(prev => prev.filter(entry => entry.playerId !== data.playerId));
     });
 
     const cleanupSessionsUpdate = onSessionsUpdate(() => {
@@ -607,9 +608,21 @@ export default function Home() {
           </div>
         )}
 
-        {/* Playing Phase */}
-        {gamePhase === 'playing' && playerId && (
+        {/* Playing or Waiting Phase */}
+        {(gamePhase === 'playing' || gamePhase === 'waiting') && playerId && (
           <div className="game-container">
+            {/* Waiting Banner - shown when player finished but others haven't */}
+            {gamePhase === 'waiting' && (
+              <div className="waiting-banner animate-slideDown">
+                <div className="waiting-banner-content">
+                  <span className="waiting-icon-small">⏳</span>
+                  <span className="waiting-message">
+                    Round complete! Waiting for other players to finish...
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="game-content">
               <GameBoard
                 targetColor={targetColor}
@@ -617,6 +630,7 @@ export default function Home() {
                 totalRounds={3}
                 onSubmit={handleSubmitRound}
                 isSubmitting={isLoading}
+                disabled={gamePhase === 'waiting'}
               />
             </div>
 
@@ -663,27 +677,6 @@ export default function Home() {
             </aside>
           </div>
         )
-        }
-
-        {/* Waiting Phase - Player finished, waiting for others */}
-        {
-          gamePhase === 'waiting' && (
-            <div className="waiting-container animate-scaleIn">
-              <div className="waiting-card glass">
-                <div className="waiting-icon">⏳</div>
-                <h2 className="waiting-title">Waiting for Other Players...</h2>
-                <p className="waiting-text">
-                  You've completed this round! The next round will start automatically when all players finish.
-                </p>
-
-                <Leaderboard
-                  entries={leaderboard}
-                  currentPlayerId={playerId || undefined}
-                  winner={winner}
-                />
-              </div>
-            </div>
-          )
         }
       </main >
 
@@ -1035,6 +1028,51 @@ export default function Home() {
           font-size: var(--font-size-sm);
           color: var(--color-text-primary);
           font-weight: 600;
+        }
+
+        .waiting-banner {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 100;
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(147, 51, 234, 0.95));
+          backdrop-filter: blur(10px);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .waiting-banner-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--spacing-md);
+          padding: var(--spacing-md);
+          color: white;
+        }
+
+        .waiting-icon-small {
+          font-size: var(--font-size-xl);
+          animation: pulse 2s ease-in-out infinite;
+        }
+
+        .waiting-message {
+          font-size: var(--font-size-base);
+          font-weight: 600;
+        }
+
+        @keyframes slideDown {
+          from {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
         }
 
         .waiting-container {
