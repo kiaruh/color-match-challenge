@@ -10,7 +10,3 @@ services:
         value: 20.11.0
       - key: PORT
         value: 10000
-    disk:
-      name: game-data
-      mountPath: /opt/render/project/src/server/data
-      sizeGB: 1
