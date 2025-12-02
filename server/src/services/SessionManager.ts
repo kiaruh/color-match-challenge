@@ -133,6 +133,12 @@ export class SessionManager {
         return result.count;
     }
 
+    // Remove a player from a session
+    removePlayer(playerId: string): void {
+        const stmt = db.prepare('DELETE FROM players WHERE id = ?');
+        stmt.run(playerId);
+    }
+
     // Submit a round
     submitRound(
         playerId: string,

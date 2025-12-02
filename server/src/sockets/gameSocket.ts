@@ -35,9 +35,9 @@ export const setupGameSocket = (io: SocketIOServer) => {
                     username: player.username,
                 });
 
-                // Send current leaderboard to the joining player
+                // Broadcast updated leaderboard to ALL players (including the joining player)
                 const leaderboardData = sessionManager.getLeaderboard(sessionId);
-                socket.emit('leaderboard_updated', leaderboardData);
+                io.to(sessionId).emit('leaderboard_updated', leaderboardData);
             }
         });
 
@@ -100,13 +100,25 @@ export const setupGameSocket = (io: SocketIOServer) => {
                 return;
             }
 
-            socket.leave(sessionId);
-            // Broadcast to room
-            io.to(sessionId).emit('player_quit', { playerId });
+            try {
+                // Remove player from database
+                sessionManager.removePlayer(playerId);
 
-            // Broadcast global update for live games list
-            broadcastSessionsUpdate();
-            console.log(`👋 Player ${playerId} quit session ${sessionId}`);
+                socket.leave(sessionId);
+
+                // Broadcast updated leaderboard to remaining players
+                const leaderboardData = sessionManager.getLeaderboard(sessionId);
+                io.to(sessionId).emit('leaderboard_updated', leaderboardData);
+
+                // Broadcast to room that player quit
+                io.to(sessionId).emit('player_quit', { playerId });
+
+                // Broadcast global update for live games list
+                broadcastSessionsUpdate();
+                console.log(`👋 Player ${playerId} quit session ${sessionId}`);
+            } catch (error) {
+                console.error('Error removing player:', error);
+            }
         });
 
         // Handle disconnection
