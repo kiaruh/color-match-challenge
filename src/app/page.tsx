@@ -520,7 +520,37 @@ export default function Home() {
 
             <LiveGamesList
               sessions={activeSessions}
-              onJoin={(id) => setJoinSessionId(id)}
+              onJoin={async (sessionId, password) => {
+                try {
+                  setIsLoading(true);
+                  setError(null);
+
+                  // Get session details
+                  const existingSession = await getSession(sessionId);
+                  setSession(existingSession);
+
+                  // Use provided username or generate random one
+                  const finalUsername = username || generateRandomUsername();
+                  setUsername(finalUsername);
+
+                  // Join the session
+                  const joinResponse = await joinSession(sessionId, finalUsername, password);
+                  setPlayerId(joinResponse.playerId);
+                  setCurrentRound(joinResponse.currentRound);
+
+                  // Join WebSocket room
+                  wsJoinSession(sessionId, joinResponse.playerId);
+
+                  // Set target color
+                  setTargetColor(existingSession.startColor);
+                  setGamePhase('playing');
+                  setChatMessages([]);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Failed to join session');
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
               onRefresh={() => {
                 setIsLoadingSessions(true);
                 getActiveSessions()

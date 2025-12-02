@@ -1,16 +1,34 @@
 'use client';
 
+import { useState } from 'react';
 import { ActiveSession } from '../utils/api';
 
 interface LiveGamesListProps {
   sessions: ActiveSession[];
-  onJoin: (sessionId: string) => void;
+  onJoin: (sessionId: string, password?: string) => void;
   onRefresh?: () => void;
   isLoading: boolean;
   error?: string | null;
 }
 
 export default function LiveGamesList({ sessions, onJoin, onRefresh, isLoading, error }: LiveGamesListProps) {
+  const [passwordPrompt, setPasswordPrompt] = useState<{ sessionId: string; show: boolean }>({ sessionId: '', show: false });
+  const [passwordInput, setPasswordInput] = useState('');
+
+  const handleJoinClick = (session: ActiveSession) => {
+    if (session.hasPassword) {
+      setPasswordPrompt({ sessionId: session.id, show: true });
+      setPasswordInput('');
+    } else {
+      onJoin(session.id);
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    onJoin(passwordPrompt.sessionId, passwordInput);
+    setPasswordPrompt({ sessionId: '', show: false });
+    setPasswordInput('');
+  };
   if (error) {
     return (
       <div className="live-games-error">
@@ -161,7 +179,7 @@ export default function LiveGamesList({ sessions, onJoin, onRefresh, isLoading, 
 
             <button
               className="join-btn"
-              onClick={() => onJoin(session.id)}
+              onClick={() => handleJoinClick(session)}
               disabled={session.playerCount >= (session.maxPlayers || 4)}
             >
               {session.playerCount >= (session.maxPlayers || 4) ? 'Full' : 'Join'}
@@ -169,6 +187,33 @@ export default function LiveGamesList({ sessions, onJoin, onRefresh, isLoading, 
           </div>
         ))}
       </div>
+
+      {/* Password prompt modal */}
+      {passwordPrompt.show && (
+        <div className="modal-overlay" onClick={() => setPasswordPrompt({ sessionId: '', show: false })}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Password Required</h3>
+            <p>This game is password-protected</p>
+            <input
+              type="password"
+              placeholder="Enter password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              autoFocus
+              className="password-input"
+            />
+            <div className="modal-actions">
+              <button onClick={() => setPasswordPrompt({ sessionId: '', show: false })} className="cancel-btn">
+                Cancel
+              </button>
+              <button onClick={handlePasswordSubmit} className="submit-btn">
+                Join Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .live-games-list {
@@ -290,6 +335,96 @@ export default function LiveGamesList({ sessions, onJoin, onRefresh, isLoading, 
 
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          animation: fadeIn 0.2s;
+        }
+
+        .modal-content {
+          background: var(--color-bg-card);
+          padding: var(--spacing-xl);
+          border-radius: var(--radius-xl);
+          border: 1px solid var(--color-border);
+          max-width: 400px;
+          width: 90%;
+          animation: scaleIn 0.2s;
+        }
+
+        .modal-content h3 {
+          margin: 0 0 var(--spacing-sm) 0;
+          color: var(--color-text-primary);
+        }
+
+        .modal-content p {
+          margin: 0 0 var(--spacing-md) 0;
+          color: var(--color-text-secondary);
+          font-size: var(--font-size-sm);
+        }
+
+        .password-input {
+          width: 100%;
+          padding: var(--spacing-md);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+          background: var(--color-bg-darker);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-base);
+          margin-bottom: var(--spacing-md);
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: var(--spacing-sm);
+          justify-content: flex-end;
+        }
+
+        .cancel-btn, .submit-btn {
+          padding: var(--spacing-sm) var(--spacing-lg);
+          border-radius: var(--radius-md);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-base);
+        }
+
+        .cancel-btn {
+          background: transparent;
+          border: 1px solid var(--color-border);
+          color: var(--color-text-secondary);
+        }
+
+        .cancel-btn:hover {
+          background: var(--color-bg-darker);
+        }
+
+        .submit-btn {
+          background: var(--color-primary);
+          border: none;
+          color: white;
+        }
+
+        .submit-btn:hover {
+          opacity: 0.9;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+          from { transform: scale(0.9); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>
