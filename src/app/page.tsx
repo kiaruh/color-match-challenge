@@ -45,6 +45,7 @@ export default function Home() {
   // Live games state
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
 
   const {
     isConnected,
@@ -128,8 +129,10 @@ export default function Home() {
 
         const sessions = await getActiveSessions();
         setActiveSessions(sessions);
+        setSessionsError(null);
       } catch (err) {
         console.error('Failed to fetch active sessions:', err);
+        setSessionsError('Failed to load games. Backend might be waking up.');
       } finally {
         setIsLoadingSessions(false);
       }
@@ -518,7 +521,18 @@ export default function Home() {
             <LiveGamesList
               sessions={activeSessions}
               onJoin={(id) => setJoinSessionId(id)}
+              onRefresh={() => {
+                setIsLoadingSessions(true);
+                getActiveSessions()
+                  .then((s) => {
+                    setActiveSessions(s);
+                    setSessionsError(null);
+                  })
+                  .catch((e) => setSessionsError('Failed to refresh'))
+                  .finally(() => setIsLoadingSessions(false));
+              }}
               isLoading={isLoadingSessions}
+              error={sessionsError}
             />
 
             <div className="features-grid">

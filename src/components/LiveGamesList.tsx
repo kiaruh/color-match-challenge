@@ -5,10 +5,42 @@ import { ActiveSession } from '../utils/api';
 interface LiveGamesListProps {
   sessions: ActiveSession[];
   onJoin: (sessionId: string) => void;
+  onRefresh?: () => void;
   isLoading: boolean;
+  error?: string | null;
 }
 
-export default function LiveGamesList({ sessions, onJoin, isLoading }: LiveGamesListProps) {
+export default function LiveGamesList({ sessions, onJoin, onRefresh, isLoading, error }: LiveGamesListProps) {
+  if (error) {
+    return (
+      <div className="live-games-error">
+        <p>⚠️ {error}</p>
+        {onRefresh && (
+          <button onClick={onRefresh} className="refresh-btn">
+            Try Again
+          </button>
+        )}
+        <style jsx>{`
+          .live-games-error {
+            text-align: center;
+            padding: var(--spacing-lg);
+            color: var(--color-error);
+            background: rgba(255, 0, 0, 0.1);
+            border-radius: var(--radius-lg);
+            margin-top: var(--spacing-xl);
+          }
+          .refresh-btn {
+            margin-top: var(--spacing-sm);
+            padding: var(--spacing-xs) var(--spacing-md);
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+          }
+        `}</style>
+      </div>
+    );
+  }
   // If loading and we have no sessions, show spinner
   if (isLoading && sessions.length === 0) {
     return (
@@ -31,54 +63,69 @@ export default function LiveGamesList({ sessions, onJoin, isLoading }: LiveGames
           <div className="empty-content">
             <h4>It's quiet... too quiet.</h4>
             <p>Be the first to start a match and challenge others!</p>
+            {onRefresh && (
+              <button onClick={onRefresh} className="refresh-link">
+                ↻ Refresh List
+              </button>
+            )}
           </div>
         </div>
         <style jsx>{`
-                    .live-games-list {
-                        width: 100%;
-                        margin-top: var(--spacing-xl);
-                    }
-                    .list-title {
-                        display: flex;
-                        align-items: center;
-                        gap: var(--spacing-sm);
-                        font-size: var(--font-size-lg);
-                        color: var(--color-text-primary);
-                        margin-bottom: var(--spacing-md);
-                    }
-                    .live-indicator {
-                        color: var(--color-error);
-                        animation: pulse 2s infinite;
-                        font-size: var(--font-size-sm);
-                    }
-                    .empty-state-card {
-                        padding: var(--spacing-lg);
-                        border-radius: var(--radius-lg);
-                        background: var(--color-bg-card);
-                        border: 2px dashed var(--color-border);
-                        display: flex;
-                        align-items: center;
-                        gap: var(--spacing-lg);
-                        opacity: 0.8;
-                    }
-                    .empty-icon {
-                        font-size: 2.5rem;
-                        animation: float 3s ease-in-out infinite;
-                    }
-                    .empty-content h4 {
-                        margin: 0 0 var(--spacing-xs) 0;
-                        color: var(--color-text-primary);
-                    }
-                    .empty-content p {
-                        margin: 0;
-                        font-size: var(--font-size-sm);
-                        color: var(--color-text-secondary);
-                    }
-                    @keyframes float {
-                        0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-10px); }
-                    }
-                `}</style>
+          .live-games-list {
+            width: 100%;
+            margin-top: var(--spacing-xl);
+          }
+          .list-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-size: var(--font-size-lg);
+            color: var(--color-text-primary);
+            margin-bottom: var(--spacing-md);
+          }
+          .live-indicator {
+            color: var(--color-error);
+            animation: pulse 2s infinite;
+            font-size: var(--font-size-sm);
+          }
+          .empty-state-card {
+            padding: var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            background: var(--color-bg-card);
+            border: 2px dashed var(--color-border);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+            opacity: 0.8;
+          }
+          .empty-icon {
+            font-size: 2.5rem;
+            animation: float 3s ease-in-out infinite;
+          }
+          .empty-content h4 {
+            margin: 0 0 var(--spacing-xs) 0;
+            color: var(--color-text-primary);
+          }
+          .empty-content p {
+            margin: 0;
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+          }
+          .refresh-link {
+            background: none;
+            border: none;
+            color: var(--color-primary);
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+            margin-top: var(--spacing-xs);
+            font-size: var(--font-size-xs);
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -86,7 +133,12 @@ export default function LiveGamesList({ sessions, onJoin, isLoading }: LiveGames
   return (
     <div className="live-games-list">
       <h3 className="list-title">
-        <span className="live-indicator">●</span> Live Games
+        <span><span className="live-indicator">●</span> Live Games</span>
+        {onRefresh && (
+          <button onClick={onRefresh} className="refresh-icon-btn" title="Refresh">
+            ↻
+          </button>
+        )}
       </h3>
 
       <div className="games-grid">
