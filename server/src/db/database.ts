@@ -24,7 +24,8 @@ export function initializeDatabase() {
       endColor TEXT NOT NULL,
       createdAt TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active',
-      maxPlayers INTEGER
+      maxPlayers INTEGER DEFAULT 4,
+      password TEXT
     );
 
     CREATE TABLE IF NOT EXISTS players (
@@ -52,6 +53,17 @@ export function initializeDatabase() {
       FOREIGN KEY (sessionId) REFERENCES sessions(id)
     );
 
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      sessionId TEXT NOT NULL,
+      playerId TEXT NOT NULL,
+      username TEXT NOT NULL,
+      message TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      FOREIGN KEY (sessionId) REFERENCES sessions(id),
+      FOREIGN KEY (playerId) REFERENCES players(id)
+    );
+
     CREATE TABLE IF NOT EXISTS analytics_events (
       id TEXT PRIMARY KEY,
       sessionId TEXT NOT NULL,
@@ -66,6 +78,7 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_players_session ON players(sessionId);
     CREATE INDEX IF NOT EXISTS idx_rounds_player ON rounds(playerId);
     CREATE INDEX IF NOT EXISTS idx_rounds_session ON rounds(sessionId);
+    CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(sessionId);
     CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics_events(sessionId);
   `);
 

@@ -9,6 +9,12 @@ export interface Session {
     createdAt: string;
     status: 'active' | 'completed';
     maxPlayers?: number;
+    password?: string;
+}
+
+export interface ActiveSession extends Session {
+    playerCount: number;
+    hasPassword: boolean;
 }
 
 export interface Player {
@@ -49,19 +55,30 @@ export interface LeaderboardResponse {
     winner: LeaderboardEntry | null;
 }
 
+export interface ChatMessage {
+    id: string;
+    sessionId: string;
+    playerId: string;
+    username: string;
+    message: string;
+    timestamp: string;
+}
+
 /**
  * Create a new game session
  */
 export async function createSession(
     startColor?: string,
-    endColor?: string
+    endColor?: string,
+    password?: string,
+    maxPlayers: number = 4
 ): Promise<Session> {
     const response = await fetch(`${API_BASE_URL}/sessions`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ startColor, endColor }),
+        body: JSON.stringify({ startColor, endColor, password, maxPlayers }),
     });
 
     if (!response.ok) {
@@ -98,14 +115,28 @@ export async function getMostRecentActiveSession(): Promise<Session> {
 }
 
 /**
+ * Get all active sessions
+ */
+export async function getActiveSessions(): Promise<ActiveSession[]> {
+    const response = await fetch(`${API_BASE_URL}/sessions/active`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch active sessions');
+    }
+
+    return response.json();
+}
+
+/**
  * Join an existing session
  */
-export async function joinSession(sessionId: string): Promise<JoinSessionResponse> {
+export async function joinSession(sessionId: string, username: string, password?: string): Promise<JoinSessionResponse> {
     const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/join`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ username, password }),
     });
 
     if (!response.ok) {
@@ -144,6 +175,38 @@ export async function submitRound(
 
     if (!response.ok) {
         throw new Error('Failed to submit round');
+    }
+
+    return response.json();
+}
+
+/**
+ * Get chat history for a session
+ */
+export async function getChatHistory(sessionId: string, limit: number = 50): Promise<ChatMessage[]> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/chat?limit=${limit}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch chat history');
+    }
+
+    return response.json();
+}
+
+/**
+ * Send a chat message
+ */
+export async function sendChatMessage(sessionId: string, playerId: string, username: string, message: string): Promise<ChatMessage> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ playerId, username, message }),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to send message');
     }
 
     return response.json();

@@ -7,9 +7,11 @@ const sessionManager = new SessionManager();
 // Create a new session
 router.post('/sessions', (req: Request, res: Response) => {
     try {
-        const { startColor, endColor } = req.body;
-        const session = sessionManager.createSession(startColor, endColor);
-        res.json(session);
+        const { startColor, endColor, password, maxPlayers } = req.body;
+        const session = sessionManager.createSession(startColor, endColor, password, maxPlayers);
+        // Don't send password back to client
+        const { password: _, ...sessionWithoutPassword } = session;
+        res.json(sessionWithoutPassword);
     } catch (error) {
         res.status(500).json({ error: (error as Error).message });
     }
@@ -25,7 +27,9 @@ router.get('/sessions/:sessionId', (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Session not found' });
         }
 
-        res.json(session);
+        // Don't send password to client
+        const { password: _, ...sessionWithoutPassword } = session;
+        res.json(sessionWithoutPassword);
     } catch (error) {
         res.status(500).json({ error: (error as Error).message });
     }
@@ -40,7 +44,29 @@ router.get('/sessions-active/latest', (req: Request, res: Response) => {
             return res.status(404).json({ error: 'No active session found' });
         }
 
-        res.json(session);
+        // Don't send password to client
+        const { password: _, ...sessionWithoutPassword } = session;
+        res.json(sessionWithoutPassword);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Get all active sessions
+router.get('/sessions/active', (req: Request, res: Response) => {
+    try {
+        const sessions = sessionManager.getActiveSessions();
+
+        // Don't send passwords to client
+        const sanitizedSessions = sessions.map(session => {
+            const { password, ...rest } = session;
+            return {
+                ...rest,
+                hasPassword: !!password
+            };
+        });
+
+        res.json(sanitizedSessions);
     } catch (error) {
         res.status(500).json({ error: (error as Error).message });
     }
@@ -50,7 +76,13 @@ router.get('/sessions-active/latest', (req: Request, res: Response) => {
 router.post('/sessions/:sessionId/join', (req: Request, res: Response) => {
     try {
         const { sessionId } = req.params;
-        const player = sessionManager.joinSession(sessionId);
+        const { username, password } = req.body;
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+
+        const player = sessionManager.joinSession(sessionId, username, password);
 
         res.json({
             playerId: player.id,
@@ -98,6 +130,35 @@ router.get('/sessions/:sessionId/leaderboard', (req: Request, res: Response) => 
         res.json(leaderboard);
     } catch (error) {
         res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Get chat history
+router.get('/sessions/:sessionId/chat', (req: Request, res: Response) => {
+    try {
+        const { sessionId } = req.params;
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+        const messages = sessionManager.getChatHistory(sessionId, limit);
+        res.json(messages);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Send chat message
+router.post('/sessions/:sessionId/chat', (req: Request, res: Response) => {
+    try {
+        const { sessionId } = req.params;
+        const { playerId, username, message } = req.body;
+
+        if (!playerId || !username || !message) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const chatMessage = sessionManager.saveChatMessage(sessionId, playerId, username, message);
+        res.json(chatMessage);
+    } catch (error) {
+        res.status(400).json({ error: (error as Error).message });
     }
 });
 

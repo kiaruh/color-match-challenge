@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/database';
-import { Session, Player, Round, LeaderboardEntry, AnalyticsEvent } from '../types';
+import { Session, Player, Round, LeaderboardEntry, AnalyticsEvent, ChatMessage } from '../types';
 
 export class SessionManager {
     // Generate random color
@@ -12,20 +12,22 @@ export class SessionManager {
     }
 
     // Create a new session
-    createSession(startColor?: string, endColor?: string): Session {
+    createSession(startColor?: string, endColor?: string, password?: string, maxPlayers: number = 4): Session {
         const session: Session = {
             id: uuidv4(),
             startColor: startColor || this.generateRandomColor(),
             endColor: endColor || this.generateRandomColor(),
             createdAt: new Date().toISOString(),
             status: 'active',
+            maxPlayers,
+            password,
         };
 
         const stmt = db.prepare(`
-      INSERT INTO sessions (id, startColor, endColor, createdAt, status)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO sessions (id, startColor, endColor, createdAt, status, maxPlayers, password)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(session.id, session.startColor, session.endColor, session.createdAt, session.status);
+        stmt.run(session.id, session.startColor, session.endColor, session.createdAt, session.status, session.maxPlayers, session.password);
 
         return session;
     }
@@ -47,8 +49,21 @@ export class SessionManager {
         return stmt.get() as Session | null;
     }
 
+    // Get all active sessions with player counts
+    getActiveSessions(): Array<Session & { playerCount: number }> {
+        const stmt = db.prepare(`
+            SELECT s.*, COUNT(p.id) as playerCount
+            FROM sessions s
+            LEFT JOIN players p ON s.id = p.sessionId
+            WHERE s.status = 'active'
+            GROUP BY s.id
+            ORDER BY s.createdAt DESC
+        `);
+        return stmt.all() as Array<Session & { playerCount: number }>;
+    }
+
     // Join a session (create player)
-    joinSession(sessionId: string): Player {
+    joinSession(sessionId: string, username: string, password?: string): Player {
         const session = this.getSession(sessionId);
         if (!session) {
             throw new Error('Session not found');
@@ -58,9 +73,17 @@ export class SessionManager {
             throw new Error('Session is not active');
         }
 
-        // Generate username
+        // Validate password if session is password-protected
+        if (session.password && session.password !== password) {
+            throw new Error('Incorrect password');
+        }
+
+        // Check max players
         const playerCount = this.getPlayerCount(sessionId);
-        const username = `Player ${Math.floor(Math.random() * 9000) + 1000}`;
+        const maxPlayers = session.maxPlayers || 4;
+        if (playerCount >= maxPlayers) {
+            throw new Error(`Session is full (max ${maxPlayers} players)`);
+        }
 
         const player: Player = {
             id: uuidv4(),
@@ -244,5 +267,37 @@ export class SessionManager {
     getSessionPlayers(sessionId: string): Player[] {
         const stmt = db.prepare('SELECT * FROM players WHERE sessionId = ? ORDER BY joinedAt ASC');
         return stmt.all(sessionId) as Player[];
+    }
+
+    // Save chat message
+    saveChatMessage(sessionId: string, playerId: string, username: string, message: string): ChatMessage {
+        const chatMessage: ChatMessage = {
+            id: uuidv4(),
+            sessionId,
+            playerId,
+            username,
+            message,
+            timestamp: new Date().toISOString(),
+        };
+
+        const stmt = db.prepare(`
+      INSERT INTO chat_messages (id, sessionId, playerId, username, message, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+        stmt.run(chatMessage.id, chatMessage.sessionId, chatMessage.playerId, chatMessage.username, chatMessage.message, chatMessage.timestamp);
+
+        return chatMessage;
+    }
+
+    // Get chat history for a session
+    getChatHistory(sessionId: string, limit: number = 50): ChatMessage[] {
+        const stmt = db.prepare(`
+      SELECT * FROM chat_messages
+      WHERE sessionId = ?
+      ORDER BY timestamp DESC
+      LIMIT ?
+    `);
+        const messages = stmt.all(sessionId, limit) as ChatMessage[];
+        return messages.reverse(); // Return in chronological order
     }
 }

@@ -67,6 +67,34 @@ export function setupGameSocket(io: SocketIOServer) {
             }
         });
 
+        // Handle chat messages
+        socket.on('chat_message', ({ sessionId, playerId, username, message }) => {
+            if (!sessionId || !playerId || !username || !message) {
+                socket.emit('error', { message: 'Missing required data' });
+                return;
+            }
+
+            try {
+                const chatMessage = sessionManager.saveChatMessage(sessionId, playerId, username, message);
+                // Broadcast to all players in the session
+                io.to(sessionId).emit('chat_message', chatMessage);
+            } catch (error) {
+                socket.emit('error', { message: (error as Error).message });
+            }
+        });
+
+        // Handle player quit
+        socket.on('player_quit', ({ sessionId, playerId }) => {
+            if (!sessionId || !playerId) {
+                socket.emit('error', { message: 'Missing sessionId or playerId' });
+                return;
+            }
+
+            socket.leave(sessionId);
+            socket.to(sessionId).emit('player_quit', { playerId });
+            console.log(`👋 Player ${playerId} quit session ${sessionId}`);
+        });
+
         // Handle disconnection
         socket.on('disconnect', () => {
             console.log(`🔌 Client disconnected: ${socket.id}`);

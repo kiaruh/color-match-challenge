@@ -5,6 +5,7 @@ export interface Session {
     createdAt: string;
     status: 'active' | 'completed';
     maxPlayers?: number;
+    password?: string;
 }
 
 export interface Player {
@@ -26,6 +27,15 @@ export interface Round {
     selectedColor: string;
     distance: number;
     score: number;
+    timestamp: string;
+}
+
+export interface ChatMessage {
+    id: string;
+    sessionId: string;
+    playerId: string;
+    username: string;
+    message: string;
     timestamp: string;
 }
 

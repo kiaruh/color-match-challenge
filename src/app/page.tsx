@@ -12,6 +12,12 @@ import {
   Session,
 } from '../utils/api';
 import { rgbToHex, generateDistinctColor } from '../utils/colorUtils';
+import { generateRandomUsername } from '../utils/usernameGenerator';
+import SessionIdDisplay from '../components/SessionIdDisplay';
+import Chat from '../components/Chat';
+import GameControls from '../components/GameControls';
+import { ChatMessage, ActiveSession, getActiveSessions, getLeaderboard, getChatHistory } from '../utils/api';
+import LiveGamesList from '../components/LiveGamesList';
 
 type GamePhase = 'landing' | 'playing' | 'results';
 
@@ -30,7 +36,29 @@ export default function Home() {
   const [isSinglePlayer, setIsSinglePlayer] = useState(false);
   const [singlePlayerScore, setSinglePlayerScore] = useState(0);
 
-  const { isConnected, joinSession: wsJoinSession, submitRound: wsSubmitRound, onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onError } = useWebSocket();
+  // New state for features
+  const [password, setPassword] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [sessionPassword, setSessionPassword] = useState('');
+
+  // Live games state
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+
+  const {
+    isConnected,
+    joinSession: wsJoinSession,
+    submitRound: wsSubmitRound,
+    onLeaderboardUpdate,
+    onPlayerJoined,
+    onSessionComplete,
+    onChatMessage,
+    onPlayerQuit,
+    onError,
+    sendChatMessage,
+    quitSession
+  } = useWebSocket();
 
   // Set up WebSocket event listeners
   useEffect(() => {
@@ -50,24 +78,87 @@ export default function Home() {
       setGamePhase('results');
     });
 
+    onChatMessage((message) => {
+      setChatMessages(prev => [...prev, message]);
+    });
+
+    onPlayerQuit((data) => {
+      console.log('Player quit:', data);
+      // Could add a toast notification here
+    });
+
     onError((error) => {
       setError(error.message);
     });
-  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onError]);
+  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onChatMessage, onPlayerQuit, onError]);
+
+  // Poll for active sessions on landing page
+  useEffect(() => {
+    if (gamePhase !== 'landing') return;
+
+    const fetchSessions = async () => {
+      try {
+        setIsLoadingSessions(true);
+        const sessions = await getActiveSessions();
+        setActiveSessions(sessions);
+      } catch (err) {
+        console.error('Failed to fetch active sessions:', err);
+      } finally {
+        setIsLoadingSessions(false);
+      }
+    };
+
+    fetchSessions();
+    const interval = setInterval(fetchSessions, 5000);
+
+    return () => clearInterval(interval);
+  }, [gamePhase]);
+
+  // Poll for game state during gameplay (fallback/sync)
+  useEffect(() => {
+    if (gamePhase !== 'playing' || !session || isSinglePlayer) return;
+
+    const fetchGameState = async () => {
+      try {
+        // Fetch leaderboard
+        const leaderboardData = await getLeaderboard(session.id);
+        setLeaderboard(leaderboardData.leaderboard);
+        if (leaderboardData.winner) {
+          setWinner(leaderboardData.winner);
+          setGamePhase('results');
+        }
+
+        // Fetch chat history (optional, to ensure sync)
+        const history = await getChatHistory(session.id, 50);
+        // We don't want to overwrite local state if we have more messages, 
+        // but this helps if we missed some. 
+        // For simplicity, we'll rely on WS for chat mostly, but this could be used to backfill.
+      } catch (err) {
+        console.error('Failed to sync game state:', err);
+      }
+    };
+
+    const interval = setInterval(fetchGameState, 5000);
+
+    return () => clearInterval(interval);
+  }, [gamePhase, session, isSinglePlayer]);
 
   const handleCreateSession = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Create session
-      const newSession = await createSession();
+      // Create session with password if provided
+      const newSession = await createSession(undefined, undefined, sessionPassword || undefined);
       setSession(newSession);
 
+      // Use provided username or generate random one
+      const finalUsername = username || generateRandomUsername();
+      setUsername(finalUsername);
+
       // Join the session
-      const joinResponse = await joinSession(newSession.id);
+      const joinResponse = await joinSession(newSession.id, finalUsername, sessionPassword || undefined);
       setPlayerId(joinResponse.playerId);
-      setUsername(joinResponse.username);
 
       // Join WebSocket room
       wsJoinSession(newSession.id, joinResponse.playerId);
@@ -76,6 +167,7 @@ export default function Home() {
       setTargetColor(newSession.startColor);
       setCurrentRound(1);
       setGamePhase('playing');
+      setChatMessages([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     } finally {
@@ -92,10 +184,13 @@ export default function Home() {
       const existingSession = await getSession(joinSessionId);
       setSession(existingSession);
 
+      // Use provided username or generate random one
+      const finalUsername = username || generateRandomUsername();
+      setUsername(finalUsername);
+
       // Join the session
-      const joinResponse = await joinSession(joinSessionId);
+      const joinResponse = await joinSession(joinSessionId, finalUsername, password || undefined);
       setPlayerId(joinResponse.playerId);
-      setUsername(joinResponse.username);
       setCurrentRound(joinResponse.currentRound);
 
       // Join WebSocket room
@@ -104,6 +199,7 @@ export default function Home() {
       // Set target color
       setTargetColor(existingSession.startColor);
       setGamePhase('playing');
+      setChatMessages([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join session');
     } finally {
@@ -212,13 +308,38 @@ export default function Home() {
     setGamePhase('landing');
     setSession(null);
     setPlayerId(null);
-    setUsername('');
+    // Keep username
     setCurrentRound(1);
     setLeaderboard([]);
     setWinner(null);
     setError(null);
     setIsSinglePlayer(false);
     setSinglePlayerScore(0);
+    setChatMessages([]);
+    setPassword('');
+    setSessionPassword('');
+  };
+
+  const handleQuit = () => {
+    if (session && playerId && !isSinglePlayer) {
+      quitSession(session.id, playerId);
+    }
+    handlePlayAgain();
+  };
+
+  const handleRematch = async () => {
+    // For now, just start a new game with same settings
+    handlePlayAgain();
+  };
+
+  const handleSendMessage = (message: string) => {
+    if (session && playerId && username) {
+      sendChatMessage(session.id, playerId, username, message);
+    }
+  };
+
+  const generateUsername = () => {
+    setUsername(generateRandomUsername());
   };
 
   return (
@@ -249,34 +370,94 @@ export default function Home() {
                 Match colors as closely as possible across 3 rounds. Compete with others in real-time!
               </p>
 
+              <div className="username-section">
+                <div className="input-group">
+                  <input
+                    type="text"
+                    placeholder="Enter Username (optional)"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="text-input"
+                  />
+                  <button
+                    className="icon-button"
+                    onClick={generateUsername}
+                    title="Generate Random Name"
+                  >
+                    🎲
+                  </button>
+                </div>
+              </div>
+
               <div className="action-buttons">
-                <button
-                  className="primary-button"
-                  onClick={handleCreateSession}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Creating...' : 'Create New Game'}
-                </button>
+                <div className="create-section">
+                  <div className="password-toggle">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!sessionPassword}
+                        onChange={(e) => setSessionPassword(e.target.checked ? '1234' : '')}
+                      />
+                      Protect with password
+                    </label>
+                    {sessionPassword && (
+                      <input
+                        type="text"
+                        placeholder="Set Password"
+                        value={sessionPassword}
+                        onChange={(e) => setSessionPassword(e.target.value)}
+                        className="password-input"
+                      />
+                    )}
+                  </div>
+                  <button
+                    className="primary-button"
+                    onClick={handleCreateSession}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Creating...' : 'Create New Game'}
+                  </button>
+                </div>
 
                 <div className="divider">
                   <span>or</span>
                 </div>
 
                 <div className="join-form">
-                  <input
-                    type="text"
-                    placeholder="Enter Session ID"
-                    value={joinSessionId}
-                    onChange={(e) => setJoinSessionId(e.target.value)}
-                    className="session-input"
-                  />
-                  <button
-                    className="secondary-button"
-                    onClick={handleJoinSession}
-                    disabled={isLoading || !joinSessionId}
-                  >
-                    Join Game
-                  </button>
+                  <div className="join-inputs">
+                    <input
+                      type="text"
+                      placeholder="Enter Session ID"
+                      value={joinSessionId}
+                      onChange={(e) => setJoinSessionId(e.target.value)}
+                      className="session-input"
+                    />
+                    {showPasswordInput && (
+                      <input
+                        type="password"
+                        placeholder="Session Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="password-input"
+                      />
+                    )}
+                  </div>
+                  <div className="join-actions">
+                    <button
+                      className="icon-button"
+                      onClick={() => setShowPasswordInput(!showPasswordInput)}
+                      title={showPasswordInput ? "Hide Password" : "Add Password"}
+                    >
+                      🔒
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={handleJoinSession}
+                      disabled={isLoading || !joinSessionId}
+                    >
+                      Join Game
+                    </button>
+                  </div>
                 </div>
 
                 <div className="divider">
@@ -292,27 +473,18 @@ export default function Home() {
                 </button>
               </div>
 
-              {session && (
-                <div className="session-info">
-                  <p className="session-label">Session ID:</p>
-                  <div className="session-id-display">
-                    <code>{session.id}</code>
-                    <button
-                      className="copy-button"
-                      onClick={() => navigator.clipboard.writeText(session.id)}
-                    >
-                      📋 Copy
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {error && (
                 <div className="error-message">
                   ⚠️ {error}
                 </div>
               )}
             </div>
+
+            <LiveGamesList
+              sessions={activeSessions}
+              onJoin={(id) => setJoinSessionId(id)}
+              isLoading={isLoadingSessions}
+            />
 
             <div className="features-grid">
               <div className="feature-card glass-hover">
@@ -355,19 +527,31 @@ export default function Home() {
 
             <aside className="game-sidebar">
               {!isSinglePlayer && session && (
-                <div className="session-card glass">
-                  <div className="session-header">Session Info</div>
-                  <div className="session-details">
-                    <div className="detail-row">
-                      <span className="detail-label">ID:</span>
-                      <code className="detail-value">{session.id.slice(0, 8)}...</code>
-                    </div>
-                    <div className="detail-row">
-                      <span className="detail-label">Player:</span>
-                      <span className="detail-value">{username}</span>
+                <>
+                  <SessionIdDisplay sessionId={session.id} />
+
+                  <div className="session-card glass">
+                    <div className="session-header">Player Info</div>
+                    <div className="session-details">
+                      <div className="detail-row">
+                        <span className="detail-label">You:</span>
+                        <span className="detail-value">{username}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Players:</span>
+                        <span className="detail-value">{leaderboard.length}/4</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  <Chat
+                    sessionId={session.id}
+                    playerId={playerId}
+                    username={username}
+                    messages={chatMessages}
+                    onSendMessage={handleSendMessage}
+                  />
+                </>
               )}
 
               <Leaderboard
@@ -375,37 +559,46 @@ export default function Home() {
                 currentPlayerId={playerId}
                 winner={winner}
               />
+
+              <GameControls
+                onQuit={handleQuit}
+                onRematch={handleRematch}
+                showRematch={!!winner}
+              />
             </aside>
           </div>
-        )}
+        )
+        }
 
         {/* Results Phase */}
-        {gamePhase === 'results' && (
-          <div className="results-container animate-scaleIn">
-            <div className="results-card glass">
-              <h2 className="results-title">Game Complete!</h2>
+        {
+          gamePhase === 'results' && (
+            <div className="results-container animate-scaleIn">
+              <div className="results-card glass">
+                <h2 className="results-title">Game Complete!</h2>
 
-              {winner && (
-                <div className="winner-section">
-                  <div className="winner-crown">👑</div>
-                  <div className="winner-text">{winner.username} wins!</div>
-                  <div className="winner-points">{winner.bestScore} points</div>
-                </div>
-              )}
+                {winner && (
+                  <div className="winner-section">
+                    <div className="winner-crown">👑</div>
+                    <div className="winner-text">{winner.username} wins!</div>
+                    <div className="winner-points">{winner.bestScore} points</div>
+                  </div>
+                )}
 
-              <Leaderboard
-                entries={leaderboard}
-                currentPlayerId={playerId || undefined}
-                winner={winner}
-              />
+                <Leaderboard
+                  entries={leaderboard}
+                  currentPlayerId={playerId || undefined}
+                  winner={winner}
+                />
 
-              <button className="primary-button" onClick={handlePlayAgain}>
-                Play Again
-              </button>
+                <button className="primary-button" onClick={handlePlayAgain}>
+                  Play Again
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </main>
+          )
+        }
+      </main >
 
       <style jsx>{`
         .app-container {
@@ -838,7 +1031,94 @@ export default function Home() {
             justify-content: center;
           }
         }
+
+        /* New Styles */
+        .username-section {
+          margin-bottom: var(--spacing-md);
+        }
+
+        .input-group {
+          display: flex;
+          gap: var(--spacing-sm);
+        }
+
+        .text-input {
+          flex: 1;
+          padding: var(--spacing-md) var(--spacing-lg);
+          font-size: var(--font-size-base);
+          color: var(--color-text-primary);
+          background: var(--color-bg-card);
+          border: 2px solid var(--color-border);
+          border-radius: var(--radius-lg);
+        }
+
+        .text-input:focus {
+          border-color: var(--color-primary);
+          outline: none;
+        }
+
+        .icon-button {
+          padding: var(--spacing-md);
+          font-size: var(--font-size-xl);
+          background: var(--color-bg-card);
+          border: 2px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          cursor: pointer;
+          transition: all var(--transition-base);
+        }
+
+        .icon-button:hover {
+          background: var(--color-bg-card-hover);
+          border-color: var(--color-primary);
+        }
+
+        .create-section {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-md);
+        }
+
+        .password-toggle {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-sm);
+        }
+
+        .password-toggle label {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+
+        .password-input {
+          padding: var(--spacing-sm) var(--spacing-md);
+          font-size: var(--font-size-sm);
+          color: var(--color-text-primary);
+          background: var(--color-bg-darker);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-md);
+        }
+
+        .password-input:focus {
+          border-color: var(--color-primary);
+          outline: none;
+        }
+
+        .join-inputs {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-sm);
+        }
+
+        .join-actions {
+          display: flex;
+          gap: var(--spacing-sm);
+        }
       `}</style>
-    </div>
+    </div >
   );
 }
