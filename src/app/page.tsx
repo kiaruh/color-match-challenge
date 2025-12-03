@@ -22,6 +22,7 @@ import { SoloResults } from '../components/SoloResults';
 import { TurnTimer } from '../components/TurnTimer';
 import { HorseRaceLeaderboard } from '../components/HorseRaceLeaderboard';
 import { GlobalRanking } from '../components/GlobalRanking';
+import { LiveSoloRace } from '../components/LiveSoloRace';
 
 type GamePhase = 'landing' | 'playing' | 'waiting' | 'solo_results';
 
@@ -813,12 +814,18 @@ export default function Home() {
                   currentTurnPlayerId={currentTurnPlayerId}
                 />
               ) : (
-                <Leaderboard
-                  entries={leaderboard}
-                  currentPlayerId={playerId}
-                  winner={winner}
-                  totalRounds={8}
-                />
+                <>
+                  <Leaderboard
+                    entries={leaderboard}
+                    currentPlayerId={playerId}
+                    winner={winner}
+                    totalRounds={8}
+                  />
+                  <LiveSoloRace
+                    currentScore={singlePlayerScore}
+                    playerName={username}
+                  />
+                </>
               )}
 
               <GameControls
