@@ -43,7 +43,7 @@ export default function Leaderboard({ entries, currentPlayerId, winner, totalRou
                 {entry.playerId === currentPlayerId && <span className="you-badge">You</span>}
               </div>
               <div className="entry-progress">
-                {entry.completedRounds}/{totalRounds} rounds
+                Round {entry.isFinished ? totalRounds : Math.min(entry.completedRounds + 1, totalRounds)}/{totalRounds}
                 {entry.isFinished && <span className="finished-badge">✓ Done</span>}
               </div>
             </div>

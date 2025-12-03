@@ -365,15 +365,15 @@ export default function Home() {
 
       if (isSinglePlayer) {
         // Handle single player logic
-        const newBestScore = Math.max(singlePlayerScore, score);
-        setSinglePlayerScore(newBestScore);
+        const newTotalScore = singlePlayerScore + score;
+        setSinglePlayerScore(newTotalScore);
 
         // Update leaderboard
         setLeaderboard([{
           playerId: 'solo-player',
           username: 'You',
-          bestScore: newBestScore,
-          totalScore: newBestScore,
+          bestScore: score,
+          totalScore: newTotalScore,
           completedRounds: currentRound,
           isFinished: currentRound >= 8,
           isWaiting: false
@@ -382,8 +382,8 @@ export default function Home() {
         setWinner({
           playerId: 'solo-player',
           username: 'You',
-          bestScore: newBestScore,
-          totalScore: newBestScore,
+          bestScore: score,
+          totalScore: newTotalScore,
           completedRounds: currentRound,
           isFinished: true,
           isWaiting: false
@@ -395,7 +395,7 @@ export default function Home() {
           try {
             await saveSoloGame({
               username,
-              totalScore: newBestScore,
+              totalScore: newTotalScore,
               completedRounds: 8
             });
           } catch (error) {
