@@ -17,7 +17,7 @@ export class SessionManager {
     }
 
     // Create a new session
-    createSession(startColor?: string, endColor?: string, password?: string, maxPlayers: number = 4): Session {
+    createSession(startColor?: string, endColor?: string, password?: string, maxPlayers: number = 4, totalRounds: number = 3): Session {
         const session: Session = {
             id: this.generateSessionId(),
             startColor: startColor || this.generateRandomColor(),
@@ -27,13 +27,16 @@ export class SessionManager {
             maxPlayers,
             password,
             currentRound: 1,
+            totalRounds,
+            currentTurnPlayerId: null,
+            turnEndTime: null,
         };
 
         const stmt = db.prepare(`
-      INSERT INTO sessions (id, startColor, endColor, createdAt, status, maxPlayers, password, currentRound)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sessions (id, startColor, endColor, createdAt, status, maxPlayers, password, currentRound, totalRounds, currentTurnPlayerId, turnEndTime)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(session.id, session.startColor, session.endColor, session.createdAt, session.status, session.maxPlayers, session.password, session.currentRound);
+        stmt.run(session.id, session.startColor, session.endColor, session.createdAt, session.status, session.maxPlayers, session.password, session.currentRound, session.totalRounds, session.currentTurnPlayerId, session.turnEndTime);
 
         return session;
     }
@@ -69,7 +72,7 @@ export class SessionManager {
     }
 
     // Join a session (create player)
-    joinSession(sessionId: string, username: string, password?: string): Player {
+    joinSession(sessionId: string, username: string, password?: string, country?: string, ip?: string): Player {
         const session = this.getSession(sessionId);
         if (!session) {
             throw new Error('Session not found');
@@ -101,11 +104,13 @@ export class SessionManager {
             totalScore: 0,
             status: 'active',
             isWaiting: 0,
+            country,
+            ip,
         };
 
         const stmt = db.prepare(`
-      INSERT INTO players (id, sessionId, username, joinedAt, completedRounds, bestScore, totalScore, status, isWaiting)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO players (id, sessionId, username, joinedAt, completedRounds, bestScore, totalScore, status, isWaiting, country, ip)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
         stmt.run(
             player.id,
@@ -116,7 +121,9 @@ export class SessionManager {
             player.bestScore,
             player.totalScore,
             player.status,
-            player.isWaiting
+            player.isWaiting,
+            player.country,
+            player.ip
         );
 
         // Track analytics
@@ -418,5 +425,89 @@ export class SessionManager {
     `);
         const messages = stmt.all(sessionId, limit) as ChatMessage[];
         return messages.reverse(); // Return in chronological order
+    }
+    // Start turn for a session
+    startTurn(sessionId: string): { currentTurnPlayerId: string; turnEndTime: string; roundNumber: number } {
+        const session = this.getSession(sessionId);
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        const players = this.getSessionPlayers(sessionId);
+        if (players.length === 0) {
+            throw new Error('No players in session');
+        }
+
+        // Determine next player
+        let nextPlayerIndex = 0;
+        if (session.currentTurnPlayerId) {
+            const currentIndex = players.findIndex(p => p.id === session.currentTurnPlayerId);
+            if (currentIndex !== -1) {
+                nextPlayerIndex = (currentIndex + 1) % players.length;
+            }
+        }
+
+        const nextPlayer = players[nextPlayerIndex];
+        const turnEndTime = new Date(Date.now() + 40000).toISOString(); // 40 seconds from now
+
+        // Update session
+        const stmt = db.prepare(`
+            UPDATE sessions 
+            SET currentTurnPlayerId = ?, turnEndTime = ?
+            WHERE id = ?
+        `);
+        stmt.run(nextPlayer.id, turnEndTime, sessionId);
+
+        return {
+            currentTurnPlayerId: nextPlayer.id,
+            turnEndTime,
+            roundNumber: session.currentRound
+        };
+    }
+
+    // Check for turn timeout and force skip if needed
+    checkTurnTimeout(sessionId: string): { timeout: boolean; nextPlayerId?: string } {
+        const session = this.getSession(sessionId);
+        if (!session || !session.currentTurnPlayerId || !session.turnEndTime) {
+            return { timeout: false };
+        }
+
+        if (new Date() > new Date(session.turnEndTime)) {
+            // Timeout occurred, force submit 0 score
+            this.submitRound(
+                session.currentTurnPlayerId,
+                sessionId,
+                session.currentRound,
+                session.startColor, // Target
+                '#000000', // Default/Failed selection
+                100, // Max distance
+                0 // 0 Score
+            );
+
+            // Start next turn
+            const nextTurn = this.startTurn(sessionId);
+            return { timeout: true, nextPlayerId: nextTurn.currentTurnPlayerId };
+        }
+
+        return { timeout: false };
+    }
+
+    // Get global rankings (top players by average score)
+    getGlobalRankings(limit: number = 10): Array<{ name: string; country: string; score: number }> {
+        const stmt = db.prepare(`
+            SELECT username, country, totalScore, completedRounds, 
+                   (CAST(totalScore AS FLOAT) / CASE WHEN completedRounds = 0 THEN 1 ELSE completedRounds END) as averageScore
+            FROM players
+            WHERE completedRounds >= 3
+            ORDER BY averageScore DESC
+            LIMIT ?
+        `);
+        const results = stmt.all(limit) as Array<{ username: string; country: string; totalScore: number; completedRounds: number; averageScore: number }>;
+
+        return results.map(r => ({
+            name: r.username,
+            country: r.country || '🌍', // Default to globe if no country
+            score: Math.round(r.averageScore) // Use average score for ranking
+        }));
     }
 }

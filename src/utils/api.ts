@@ -10,6 +10,9 @@ export interface Session {
     status: 'active' | 'completed';
     maxPlayers?: number;
     password?: string;
+    totalRounds?: number;
+    currentTurnPlayerId?: string | null;
+    turnEndTime?: string | null;
 }
 
 export interface ActiveSession extends Session {
@@ -73,14 +76,15 @@ export async function createSession(
     startColor?: string,
     endColor?: string,
     password?: string,
-    maxPlayers: number = 4
+    maxPlayers: number = 4,
+    totalRounds: number = 3
 ): Promise<Session> {
     const response = await fetch(`${API_BASE_URL}/sessions`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ startColor, endColor, password, maxPlayers }),
+        body: JSON.stringify({ startColor, endColor, password, maxPlayers, totalRounds }),
     });
 
     if (!response.ok) {
@@ -222,6 +226,19 @@ export async function getLeaderboard(sessionId: string): Promise<LeaderboardResp
 
     if (!response.ok) {
         throw new Error('Failed to fetch leaderboard');
+    }
+
+    return response.json();
+}
+
+/**
+ * Get global rankings
+ */
+export async function getGlobalRankings(limit: number = 10): Promise<Array<{ name: string; country: string; score: number }>> {
+    const response = await fetch(`${API_BASE_URL}/rankings/global?limit=${limit}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch global rankings');
     }
 
     return response.json();

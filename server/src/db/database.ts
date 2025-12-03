@@ -26,7 +26,10 @@ export function initializeDatabase() {
       status TEXT NOT NULL DEFAULT 'active',
       maxPlayers INTEGER DEFAULT 4,
       password TEXT,
-      currentRound INTEGER NOT NULL DEFAULT 1
+      currentRound INTEGER NOT NULL DEFAULT 1,
+      totalRounds INTEGER DEFAULT 3,
+      currentTurnPlayerId TEXT,
+      turnEndTime TEXT
     );
 
     CREATE TABLE IF NOT EXISTS players (
@@ -39,6 +42,8 @@ export function initializeDatabase() {
       totalScore INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
       isWaiting INTEGER NOT NULL DEFAULT 0,
+      country TEXT,
+      ip TEXT,
       FOREIGN KEY (sessionId) REFERENCES sessions(id)
     );
 

@@ -8,8 +8,10 @@ const sessionManager = new SessionManager();
 // Create a new session
 router.post('/sessions', (req: Request, res: Response) => {
     try {
-        const { startColor, endColor, password, maxPlayers } = req.body;
-        const session = sessionManager.createSession(startColor, endColor, password, maxPlayers);
+        const { startColor, endColor, password, maxPlayers, totalRounds } = req.body;
+        console.log('📝 Creating session with:', { startColor, endColor, password: !!password, maxPlayers, totalRounds });
+        const session = sessionManager.createSession(startColor, endColor, password, maxPlayers, totalRounds);
+        console.log('✅ Session created:', session.id);
 
         // Broadcast update
         broadcastSessionsUpdate();
@@ -18,6 +20,7 @@ router.post('/sessions', (req: Request, res: Response) => {
         const { password: _, ...sessionWithoutPassword } = session;
         res.json(sessionWithoutPassword);
     } catch (error) {
+        console.error('❌ Error creating session:', error);
         res.status(500).json({ error: (error as Error).message });
     }
 });
@@ -167,6 +170,17 @@ router.post('/sessions/:sessionId/chat', (req: Request, res: Response) => {
         res.json(chatMessage);
     } catch (error) {
         res.status(400).json({ error: (error as Error).message });
+    }
+});
+
+// Get global rankings
+router.get('/rankings/global', (req: Request, res: Response) => {
+    try {
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+        const rankings = sessionManager.getGlobalRankings(limit);
+        res.json(rankings);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
     }
 });
 

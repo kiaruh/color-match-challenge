@@ -7,6 +7,9 @@ export interface Session {
     maxPlayers?: number;
     password?: string;
     currentRound: number;
+    totalRounds?: number;
+    currentTurnPlayerId?: string | null;
+    turnEndTime?: string | null;
 }
 
 export interface Player {
@@ -19,6 +22,8 @@ export interface Player {
     totalScore: number;
     status: 'active' | 'finished';
     isWaiting: number; // 0 or 1 (SQLite boolean)
+    country?: string;
+    ip?: string;
 }
 
 export interface Round {

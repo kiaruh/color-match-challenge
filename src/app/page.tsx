@@ -18,6 +18,9 @@ import Chat from '../components/Chat';
 import GameControls from '../components/GameControls';
 import { ChatMessage, ActiveSession, getActiveSessions, getLeaderboard, getChatHistory } from '../utils/api';
 import LiveGamesList from '../components/LiveGamesList';
+import { TurnTimer } from '../components/TurnTimer';
+import { HorseRaceLeaderboard } from '../components/HorseRaceLeaderboard';
+import { GlobalRanking } from '../components/GlobalRanking';
 
 type GamePhase = 'landing' | 'playing' | 'waiting';
 
@@ -43,6 +46,13 @@ export default function Home() {
   const [sessionPassword, setSessionPassword] = useState('');
   const [showNewMatchModal, setShowNewMatchModal] = useState(false);
 
+  // Turn-based state
+  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState<string | null>(null);
+  const [turnEndTime, setTurnEndTime] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [totalRounds, setTotalRounds] = useState(3);
+
   // Live games state
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
@@ -65,7 +75,10 @@ export default function Home() {
     requestNewMatch,
     voteNewMatch,
     onNewMatchRequested,
-    onNewMatchStarted
+    onNewMatchStarted,
+    onTurnStarted,
+    onStartCountdown,
+    reportTurnTimeout
   } = useWebSocket();
 
   // Set up WebSocket event listeners
@@ -126,6 +139,25 @@ export default function Home() {
       setWinner(null);
     });
 
+    const cleanupTurnStarted = onTurnStarted((data) => {
+      setCurrentTurnPlayerId(data.currentTurnPlayerId);
+      setTurnEndTime(data.turnEndTime);
+      setCurrentRound(data.roundNumber);
+    });
+
+    const cleanupStartCountdown = onStartCountdown((data) => {
+      setCountdown(data.duration);
+      const interval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(interval);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    });
+
     return () => {
       cleanupLeaderboard();
       cleanupPlayerJoined();
@@ -137,8 +169,10 @@ export default function Home() {
       cleanupError();
       cleanupNewMatchRequested();
       cleanupNewMatchStarted();
+      cleanupTurnStarted();
+      cleanupStartCountdown();
     };
-  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onNextRound, onChatMessage, onPlayerQuit, onSessionsUpdate, onError, onNewMatchRequested, onNewMatchStarted]);
+  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onNextRound, onChatMessage, onPlayerQuit, onSessionsUpdate, onError, onNewMatchRequested, onNewMatchStarted, onTurnStarted, onStartCountdown]);
 
   // Poll for active sessions on landing page
   useEffect(() => {
@@ -214,8 +248,12 @@ export default function Home() {
       setIsLoading(true);
       setError(null);
 
+      // Validate and constrain input values
+      const validMaxPlayers = typeof maxPlayers === 'number' ? Math.min(20, Math.max(2, maxPlayers)) : 4;
+      const validTotalRounds = typeof totalRounds === 'number' ? Math.min(10, Math.max(1, totalRounds)) : 3;
+
       // Create session with password if provided
-      const newSession = await createSession(undefined, undefined, sessionPassword || undefined);
+      const newSession = await createSession(undefined, undefined, sessionPassword || undefined, validMaxPlayers, validTotalRounds);
       setSession(newSession);
 
       // Use provided username or generate random one
@@ -323,7 +361,7 @@ export default function Home() {
           bestScore: newBestScore,
           totalScore: newBestScore,
           completedRounds: currentRound,
-          isFinished: currentRound >= 3,
+          isFinished: currentRound >= 8,
           isWaiting: false
         }]);
 
@@ -338,7 +376,7 @@ export default function Home() {
         });
 
         // In continuous mode, move to waiting state instead of results
-        if (currentRound >= 3) {
+        if (currentRound >= 8) {
           setGamePhase('waiting');
         } else {
           setCurrentRound(currentRound + 1);
@@ -361,7 +399,7 @@ export default function Home() {
         });
 
         // Move to next round or finish
-        if (currentRound < 3) {
+        if (currentRound < (session?.totalRounds || 3)) {
           setCurrentRound(currentRound + 1);
           // Generate new target color that's significantly different from current
           const newTargetColor = generateDistinctColor(targetColor, 50);
@@ -475,6 +513,32 @@ export default function Home() {
 
               <div className="action-buttons">
                 <div className="create-section">
+                  <div className="game-settings">
+                    <div className="setting-group">
+                      <label>Max Players (2-20)</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="20"
+                        value={maxPlayers}
+                        onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 2)}
+                        onFocus={(e) => e.target.select()}
+                        className="number-input"
+                      />
+                    </div>
+                    <div className="setting-group">
+                      <label>Total Rounds</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={totalRounds}
+                        onChange={(e) => setTotalRounds(parseInt(e.target.value) || 3)}
+                        onFocus={(e) => e.target.select()}
+                        className="number-input"
+                      />
+                    </div>
+                  </div>
                   <div className="password-toggle">
                     <label>
                       <input
@@ -621,9 +685,9 @@ export default function Home() {
               </div>
               <div className="feature-card glass-hover">
                 <div className="feature-icon">⚡</div>
-                <h3 className="feature-title">Real-time Multiplayer</h3>
+                <h3 className="feature-title">Turn-Based Multiplayer</h3>
                 <p className="feature-description">
-                  Compete with others and see live leaderboard updates
+                  Take turns competing with others in a horse race to the finish!
                 </p>
               </div>
               <div className="feature-card glass-hover">
@@ -634,6 +698,15 @@ export default function Home() {
                 </p>
               </div>
             </div>
+
+            <GlobalRanking />
+          </div>
+        )}
+
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+          <div className="countdown-overlay">
+            <div className="countdown-number">{countdown}</div>
           </div>
         )}
 
@@ -656,7 +729,7 @@ export default function Home() {
               <GameBoard
                 targetColor={targetColor}
                 currentRound={currentRound}
-                totalRounds={3}
+                totalRounds={isSinglePlayer ? 8 : (session?.totalRounds || 3)}
                 onSubmit={handleSubmitRound}
                 isSubmitting={isLoading}
                 disabled={gamePhase === 'waiting'}
@@ -677,10 +750,29 @@ export default function Home() {
                       </div>
                       <div className="detail-row">
                         <span className="detail-label">Players:</span>
-                        <span className="detail-value">{leaderboard.length}/4</span>
+                        <span className="detail-value">{leaderboard.length}/{maxPlayers}</span>
                       </div>
+                      {currentTurnPlayerId && (
+                        <div className="detail-row">
+                          <span className="detail-label">
+                            {currentTurnPlayerId === playerId ? "🎯 Your Turn!" : "Spectating"}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {currentTurnPlayerId && turnEndTime && (
+                    <TurnTimer
+                      endTime={turnEndTime}
+                      onTimeout={() => {
+                        if (session) {
+                          reportTurnTimeout(session.id);
+                        }
+                      }}
+                      isActive={currentTurnPlayerId === playerId}
+                    />
+                  )}
 
                   <Chat
                     sessionId={session.id}
@@ -692,11 +784,18 @@ export default function Home() {
                 </>
               )}
 
-              <Leaderboard
-                entries={leaderboard}
-                currentPlayerId={playerId}
-                winner={winner}
-              />
+              {!isSinglePlayer ? (
+                <HorseRaceLeaderboard
+                  leaderboard={leaderboard}
+                  currentTurnPlayerId={currentTurnPlayerId}
+                />
+              ) : (
+                <Leaderboard
+                  entries={leaderboard}
+                  currentPlayerId={playerId}
+                  winner={winner}
+                />
+              )}
 
               <GameControls
                 onQuit={handleQuit}
@@ -923,6 +1022,68 @@ export default function Home() {
         .modal-btn.cancel:hover {
           background: var(--color-border);
           transform: translateY(-2px);
+        }
+
+        .countdown-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.9);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          animation: fadeIn 0.3s ease;
+        }
+
+        .countdown-number {
+          font-size: 120px;
+          font-weight: 900;
+          color: var(--color-primary);
+          text-shadow: 0 0 40px var(--color-primary);
+          animation: countdownPulse 1s ease infinite;
+        }
+
+        @keyframes countdownPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .game-settings {
+          display: flex;
+          gap: var(--spacing-md);
+          margin-bottom: var(--spacing-md);
+        }
+
+        .setting-group {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-xs);
+        }
+
+        .setting-group label {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          font-weight: 500;
+        }
+
+        .number-input {
+          padding: var(--spacing-sm) var(--spacing-md);
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          color: var(--color-text-primary);
+          font-size: var(--font-size-md);
+          font-family: var(--font-mono);
+          text-align: center;
+        }
+
+        .number-input:focus {
+          outline: none;
+          border-color: var(--color-primary);
         }
 
         .primary-button:disabled {

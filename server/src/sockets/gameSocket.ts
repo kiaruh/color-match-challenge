@@ -79,12 +79,44 @@ export const setupGameSocket = (io: SocketIOServer) => {
                         roundNumber: nextRoundData.newRound,
                         targetColor: nextRoundData.newColors.startColor,
                     });
+
+                    // Start first turn of new round
+                    const turnData = sessionManager.startTurn(sessionId);
+                    io.to(sessionId).emit('turn_started', turnData);
+                } else {
+                    // Start next turn
+                    const turnData = sessionManager.startTurn(sessionId);
+                    io.to(sessionId).emit('turn_started', turnData);
                 }
 
                 // Confirm to the submitting player
                 socket.emit('round_submitted', result);
             } catch (error) {
                 socket.emit('error', { message: (error as Error).message });
+            }
+        });
+
+        // Handle turn timeout
+        socket.on('turn_timeout', ({ sessionId }) => {
+            try {
+                const result = sessionManager.checkTurnTimeout(sessionId);
+                if (result.timeout && result.nextPlayerId) {
+                    // Broadcast updated leaderboard (since score was 0)
+                    const leaderboardData = sessionManager.getLeaderboard(sessionId);
+                    io.to(sessionId).emit('leaderboard_updated', leaderboardData);
+
+                    // Broadcast next turn
+                    const session = sessionManager.getSession(sessionId);
+                    if (session) {
+                        io.to(sessionId).emit('turn_started', {
+                            currentTurnPlayerId: result.nextPlayerId,
+                            turnEndTime: session.turnEndTime,
+                            roundNumber: session.currentRound
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling turn timeout:', error);
             }
         });
 
@@ -178,21 +210,30 @@ export const setupGameSocket = (io: SocketIOServer) => {
             // If votes match connected count (or DB count if we want to be strict)
             // Let's use connected count as proxy for "active" players
             if (votes.size >= connectedCount && connectedCount > 0) {
-                // Start new match
-                try {
-                    const result = sessionManager.resetSessionForNewMatch(sessionId);
+                // Start countdown
+                io.to(sessionId).emit('start_countdown', { duration: 3 });
 
-                    // Clear votes
-                    sessionVotes.delete(sessionId);
+                // Start match after countdown
+                setTimeout(() => {
+                    try {
+                        const result = sessionManager.resetSessionForNewMatch(sessionId);
 
-                    // Broadcast new match started
-                    io.to(sessionId).emit('new_match_started', {
-                        roundNumber: result.newRound,
-                        targetColor: result.newColors.startColor
-                    });
-                } catch (error) {
-                    console.error('Error starting new match:', error);
-                }
+                        // Clear votes
+                        sessionVotes.delete(sessionId);
+
+                        // Broadcast new match started
+                        io.to(sessionId).emit('new_match_started', {
+                            roundNumber: result.newRound,
+                            targetColor: result.newColors.startColor
+                        });
+
+                        // Start first turn
+                        const turnData = sessionManager.startTurn(sessionId);
+                        io.to(sessionId).emit('turn_started', turnData);
+                    } catch (error) {
+                        console.error('Error starting new match:', error);
+                    }
+                }, 3000);
             }
         });
 
@@ -206,6 +247,22 @@ export const setupGameSocket = (io: SocketIOServer) => {
                 console.log(`👻 Ghost player detected: ${playerId} in session ${sessionId}`);
 
                 try {
+                    // Check if it was this player's turn
+                    const session = sessionManager.getSession(sessionId);
+                    if (session && session.currentTurnPlayerId === playerId) {
+                        // Advance turn to next player BEFORE removing the current one
+                        // This ensures the turn passes to the correct next player in sequence
+                        try {
+                            const players = sessionManager.getSessionPlayers(sessionId);
+                            if (players.length > 1) {
+                                const turnData = sessionManager.startTurn(sessionId);
+                                io.to(sessionId).emit('turn_started', turnData);
+                            }
+                        } catch (e) {
+                            console.log('Error advancing turn on disconnect:', e);
+                        }
+                    }
+
                     // Remove player from database
                     sessionManager.removePlayer(playerId);
 

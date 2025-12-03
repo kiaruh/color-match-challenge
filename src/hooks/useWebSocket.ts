@@ -25,6 +25,9 @@ interface UseWebSocketReturn {
     voteNewMatch: (sessionId: string, playerId: string, vote: boolean) => void;
     onNewMatchRequested: (callback: (data: { requestedBy: string }) => void) => () => void;
     onNewMatchStarted: (callback: (data: { roundNumber: number; targetColor: string }) => void) => () => void;
+    onTurnStarted: (callback: (data: { currentTurnPlayerId: string; turnEndTime: string; roundNumber: number }) => void) => () => void;
+    onStartCountdown: (callback: (data: { duration: number }) => void) => () => void;
+    reportTurnTimeout: (sessionId: string) => void;
 }
 
 interface RoundData {
@@ -220,6 +223,32 @@ export function useWebSocket(): UseWebSocketReturn {
         return () => { };
     };
 
+    const onTurnStarted = (callback: (data: { currentTurnPlayerId: string; turnEndTime: string; roundNumber: number }) => void) => {
+        if (socketRef.current) {
+            socketRef.current.on('turn_started', callback);
+            return () => {
+                socketRef.current?.off('turn_started', callback);
+            };
+        }
+        return () => { };
+    };
+
+    const onStartCountdown = (callback: (data: { duration: number }) => void) => {
+        if (socketRef.current) {
+            socketRef.current.on('start_countdown', callback);
+            return () => {
+                socketRef.current?.off('start_countdown', callback);
+            };
+        }
+        return () => { };
+    };
+
+    const reportTurnTimeout = (sessionId: string) => {
+        if (socketRef.current) {
+            socketRef.current.emit('turn_timeout', { sessionId });
+        }
+    };
+
     return {
         socket: socketRef.current,
         isConnected,
@@ -239,5 +268,8 @@ export function useWebSocket(): UseWebSocketReturn {
         voteNewMatch,
         onNewMatchRequested,
         onNewMatchStarted,
+        onTurnStarted,
+        onStartCountdown,
+        reportTurnTimeout,
     };
 }
