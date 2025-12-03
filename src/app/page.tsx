@@ -314,7 +314,10 @@ export default function Home() {
   const handlePlaySolo = () => {
     setIsSinglePlayer(true);
     setPlayerId('solo-player');
-    setUsername('You');
+
+    // Use provided username or generate random one
+    const finalUsername = username || generateRandomUsername();
+    setUsername(finalUsername);
 
     // Generate random start color
     const r = Math.floor(Math.random() * 256);
@@ -330,7 +333,7 @@ export default function Home() {
     // Create initial leaderboard entry for solo player
     setLeaderboard([{
       playerId: 'solo-player',
-      username: 'You',
+      username: finalUsername,
       bestScore: 0,
       totalScore: 0,
       completedRounds: 0,

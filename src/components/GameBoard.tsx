@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import ColorPicker from './ColorPicker';
 import { hexToRgb, rgbToHex, calculateDeltaE, calculateScore, getAccuracyDescription } from '../utils/colorUtils';
+import { playScoreSound } from '../utils/soundManager';
 
 interface GameBoardProps {
   targetColor: string;
@@ -43,6 +44,9 @@ export default function GameBoard({
 
     setResult({ distance, score, accuracy });
     setShowResult(true);
+
+    // Play sound based on score
+    playScoreSound(score);
 
     // Call parent callback after a short delay to show result
     setTimeout(() => {
@@ -123,6 +127,7 @@ export default function GameBoard({
 
       <style jsx>{`
         .game-board {
+          position: relative;
           display: flex;
           flex-direction: column;
           gap: var(--spacing-2xl);
@@ -227,20 +232,36 @@ export default function GameBoard({
         }
 
         .result-display {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          z-index: 100;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: var(--spacing-md);
           padding: var(--spacing-2xl);
-          background: var(--color-bg-card);
+          background: rgba(0, 0, 0, 0.9);
           border: 2px solid var(--color-border);
           border-radius: var(--radius-xl);
-          box-shadow: var(--shadow-xl);
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+          pointer-events: none;
         }
 
         .result-accuracy {
           font-size: var(--font-size-3xl);
           font-weight: 800;
+          animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
         }
 
         .result-score {

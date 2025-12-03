@@ -492,22 +492,41 @@ export class SessionManager {
         return { timeout: false };
     }
 
-    // Get global rankings (top players by average score)
-    getGlobalRankings(limit: number = 10): Array<{ name: string; country: string; score: number }> {
+    // Get global rankings (top players by total score)
+    getGlobalRankings(limit: number = 10): Array<{ name: string; country: string; score: number; timestamp: string }> {
         const stmt = db.prepare(`
-            SELECT username, country, totalScore, completedRounds, 
-                   (CAST(totalScore AS FLOAT) / CASE WHEN completedRounds = 0 THEN 1 ELSE completedRounds END) as averageScore
+            SELECT username, country, totalScore, joinedAt
             FROM players
-            WHERE completedRounds >= 3
-            ORDER BY averageScore DESC
+            WHERE totalScore > 0
+            ORDER BY totalScore DESC
             LIMIT ?
         `);
-        const results = stmt.all(limit) as Array<{ username: string; country: string; totalScore: number; completedRounds: number; averageScore: number }>;
+        const results = stmt.all(limit) as Array<{ username: string; country: string; totalScore: number; joinedAt: string }>;
 
         return results.map(r => ({
             name: r.username,
-            country: r.country || '🌍', // Default to globe if no country
-            score: Math.round(r.averageScore) // Use average score for ranking
+            country: r.country || '🌍',
+            score: r.totalScore,
+            timestamp: r.joinedAt
+        }));
+    }
+
+    // Get country-specific rankings
+    getCountryRankings(country: string, limit: number = 10): Array<{ name: string; country: string; score: number; timestamp: string }> {
+        const stmt = db.prepare(`
+            SELECT username, country, totalScore, joinedAt
+            FROM players
+            WHERE totalScore > 0 AND country = ?
+            ORDER BY totalScore DESC
+            LIMIT ?
+        `);
+        const results = stmt.all(country, limit) as Array<{ username: string; country: string; totalScore: number; joinedAt: string }>;
+
+        return results.map(r => ({
+            name: r.username,
+            country: r.country || '🌍',
+            score: r.totalScore,
+            timestamp: r.joinedAt
         }));
     }
 }

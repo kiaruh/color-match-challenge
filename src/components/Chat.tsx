@@ -2,111 +2,135 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from '../utils/api';
+import { soundManager } from '../utils/soundManager';
 
 interface ChatProps {
-    sessionId: string;
-    playerId: string;
-    username: string;
-    messages: ChatMessage[];
-    onSendMessage: (message: string) => void;
+  sessionId: string;
+  playerId: string;
+  username: string;
+  messages: ChatMessage[];
+  onSendMessage: (message: string) => void;
 }
 
 const EMOJIS = [
-    '😀', '😂', '😍', '😎', '🤔', '👍', '👎', '🎉', '🔥', '💯',
-    '🎨', '🌈', '✨', '👋', '🤝', '🏆', '👑', '💪', '👀', '👻'
+  '😀', '😂', '😍', '😎', '🤔', '👍', '👎', '🎉', '🔥', '💯',
+  '🎨', '🌈', '✨', '👋', '🤝', '🏆', '👑', '💪', '👀', '👻'
 ];
 
 export default function Chat({ sessionId, playerId, username, messages, onSendMessage }: ChatProps) {
-    const [newMessage, setNewMessage] = useState('');
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLength = useRef(messages.length);
 
-    // Auto-scroll to bottom when new messages arrive
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+  // Play notification sound when new messages arrive (but not on initial load)
+  useEffect(() => {
+    if (messages.length > prevMessagesLength.current && prevMessagesLength.current > 0) {
+      const lastMessage = messages[messages.length - 1];
+      // Don't play sound for own messages
+      if (lastMessage.playerId !== playerId && !isMuted) {
+        soundManager.playChatNotification();
+      }
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, playerId, isMuted]);
 
-    const handleSend = (e?: React.FormEvent) => {
-        e?.preventDefault();
-        if (!newMessage.trim()) return;
+  // Update sound manager mute state
+  useEffect(() => {
+    soundManager.setMuted(isMuted);
+  }, [isMuted]);
 
-        onSendMessage(newMessage);
-        setNewMessage('');
-        setShowEmojiPicker(false);
-    };
+  const handleSend = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newMessage.trim()) return;
 
-    const handleEmojiClick = (emoji: string) => {
-        setNewMessage(prev => prev + emoji);
-    };
+    onSendMessage(newMessage);
+    setNewMessage('');
+    setShowEmojiPicker(false);
+  };
 
-    return (
-        <div className="chat-container glass">
-            <div className="chat-header">
-                <h3>Live Chat</h3>
-                <span className="online-indicator">● Live</span>
+  const handleEmojiClick = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+  };
+
+  return (
+    <div className="chat-container glass">
+      <div className="chat-header">
+        <h3>Live Chat</h3>
+        <div className="header-controls">
+          <button
+            className="mute-btn"
+            onClick={() => setIsMuted(!isMuted)}
+            title={isMuted ? 'Unmute notifications' : 'Mute notifications'}
+          >
+            {isMuted ? '🔇' : '🔔'}
+          </button>
+          <span className="online-indicator">● Live</span>
+        </div>
+      </div>
+
+      <div className="messages-list">
+        {messages.length === 0 && (
+          <div className="empty-chat">
+            <p>No messages yet. Say hello! 👋</p>
+          </div>
+        )}
+
+        {messages.map((msg) => {
+          const isMe = msg.playerId === playerId;
+          return (
+            <div key={msg.id} className={`message-row ${isMe ? 'me' : 'other'}`}>
+              {!isMe && <div className="message-sender">{msg.username}</div>}
+              <div className="message-bubble">
+                {msg.message}
+              </div>
             </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
+      </div>
 
-            <div className="messages-list">
-                {messages.length === 0 && (
-                    <div className="empty-chat">
-                        <p>No messages yet. Say hello! 👋</p>
-                    </div>
-                )}
+      <form className="chat-input-area" onSubmit={handleSend}>
+        <div className="input-wrapper">
+          <button
+            type="button"
+            className="emoji-btn"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
+            😊
+          </button>
 
-                {messages.map((msg) => {
-                    const isMe = msg.playerId === playerId;
-                    return (
-                        <div key={msg.id} className={`message-row ${isMe ? 'me' : 'other'}`}>
-                            {!isMe && <div className="message-sender">{msg.username}</div>}
-                            <div className="message-bubble">
-                                {msg.message}
-                            </div>
-                        </div>
-                    );
-                })}
-                <div ref={messagesEndRef} />
-            </div>
-
-            <form className="chat-input-area" onSubmit={handleSend}>
-                <div className="input-wrapper">
-                    <button
-                        type="button"
-                        className="emoji-btn"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    >
-                        😊
-                    </button>
-
-                    {showEmojiPicker && (
-                        <div className="emoji-picker animate-fadeIn">
-                            {EMOJIS.map(emoji => (
-                                <button
-                                    key={emoji}
-                                    type="button"
-                                    className="emoji-option"
-                                    onClick={() => handleEmojiClick(emoji)}
-                                >
-                                    {emoji}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="chat-input"
-                    />
-                </div>
-
-                <button type="submit" className="send-btn" disabled={!newMessage.trim()}>
-                    Send
+          {showEmojiPicker && (
+            <div className="emoji-picker animate-fadeIn">
+              {EMOJIS.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className="emoji-option"
+                  onClick={() => handleEmojiClick(emoji)}
+                >
+                  {emoji}
                 </button>
-            </form>
+              ))}
+            </div>
+          )}
 
-            <style jsx>{`
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            className="chat-input"
+          />
+        </div>
+
+        <button type="submit" className="send-btn" disabled={!newMessage.trim()}>
+          Send
+        </button>
+      </form>
+
+      <style jsx>{`
         .chat-container {
           display: flex;
           flex-direction: column;
@@ -130,6 +154,25 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
           margin: 0;
           font-size: var(--font-size-base);
           font-weight: 600;
+        }
+
+        .header-controls {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+        }
+
+        .mute-btn {
+          background: none;
+          border: none;
+          font-size: var(--font-size-lg);
+          cursor: pointer;
+          padding: var(--spacing-xs);
+          transition: transform 0.2s;
+        }
+
+        .mute-btn:hover {
+          transform: scale(1.1);
         }
 
         .online-indicator {
@@ -294,6 +337,6 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
           cursor: not-allowed;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

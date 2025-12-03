@@ -234,11 +234,24 @@ export async function getLeaderboard(sessionId: string): Promise<LeaderboardResp
 /**
  * Get global rankings
  */
-export async function getGlobalRankings(limit: number = 10): Promise<Array<{ name: string; country: string; score: number }>> {
+export async function getGlobalRankings(limit: number = 10): Promise<Array<{ name: string; country: string; score: number; timestamp: string }>> {
     const response = await fetch(`${API_BASE_URL}/rankings/global?limit=${limit}`);
 
     if (!response.ok) {
         throw new Error('Failed to fetch global rankings');
+    }
+
+    return response.json();
+}
+
+/**
+ * Get country-specific rankings
+ */
+export async function getCountryRankings(country: string, limit: number = 10): Promise<Array<{ name: string; country: string; score: number; timestamp: string }>> {
+    const response = await fetch(`${API_BASE_URL}/rankings/country/${country}?limit=${limit}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch country rankings');
     }
 
     return response.json();
