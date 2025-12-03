@@ -84,15 +84,9 @@ export const GlobalRanking: React.FC = () => {
                 <div className="rank-badge" style={{ backgroundColor: isTopThree ? rankColors[index] : 'transparent' }}>
                   <span className="rank-number">{index + 1}</span>
                 </div>
-                <div className="player-info">
-                  <div className="player-main">
-                    <span className="country-flag">{player.country}</span>
-                    <span className="player-name">{player.name}</span>
-                  </div>
-                  <div className="player-meta">
-                    <span className="game-date">{formatDate(player.timestamp)}</span>
-                  </div>
-                </div>
+                <span className="country-flag">{player.country}</span>
+                <span className="player-name">{player.name}</span>
+                <span className="game-date">{formatDate(player.timestamp)}</span>
                 <div className="score-display">
                   <span className="score-value">{player.score.toLocaleString()}</span>
                   <span className="score-label">PTS</span>
@@ -166,7 +160,7 @@ export const GlobalRanking: React.FC = () => {
           border-radius: var(--radius-lg);
           border: 1px solid rgba(255, 255, 255, 0.05);
           transition: all 0.3s ease;
-          min-height: 70px;
+          min-height: 60px;
         }
 
         .ranking-item:hover {
@@ -184,12 +178,13 @@ export const GlobalRanking: React.FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 48px;
-          height: 48px;
+          min-width: 44px;
+          height: 44px;
           border-radius: var(--radius-full);
           border: 2px solid rgba(255, 255, 255, 0.2);
           font-weight: 800;
-          font-size: var(--font-size-lg);
+          font-size: var(--font-size-base);
+          flex-shrink: 0;
         }
 
         .rank-number {
@@ -207,55 +202,42 @@ export const GlobalRanking: React.FC = () => {
           text-shadow: none;
         }
 
-        .player-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: var(--spacing-xs);
-          min-width: 0;
-        }
-
-        .player-main {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-sm);
-        }
-
         .country-flag {
           font-size: var(--font-size-xl);
           flex-shrink: 0;
         }
 
         .player-name {
-          font-size: var(--font-size-lg);
-          font-weight: 700;
+          flex: 1;
+          font-size: var(--font-size-base);
+          font-weight: 600;
           color: var(--color-text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-        }
-
-        .player-meta {
-          display: flex;
-          gap: var(--spacing-md);
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
+          min-width: 0;
         }
 
         .game-date {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
           opacity: 0.7;
+          flex-shrink: 0;
+          min-width: 90px;
+          text-align: right;
         }
 
         .score-display {
           display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 2px;
-          min-width: 100px;
+          align-items: baseline;
+          gap: var(--spacing-xs);
+          flex-shrink: 0;
+          min-width: 110px;
+          justify-content: flex-end;
         }
 
         .score-value {
-          font-size: var(--font-size-2xl);
+          font-size: var(--font-size-xl);
           font-weight: 800;
           font-family: var(--font-mono);
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -269,7 +251,7 @@ export const GlobalRanking: React.FC = () => {
           font-size: var(--font-size-xs);
           font-weight: 700;
           color: var(--color-text-secondary);
-          letter-spacing: 1px;
+          letter-spacing: 0.5px;
         }
 
         .loading-text,
