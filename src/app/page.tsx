@@ -16,13 +16,14 @@ import { generateRandomUsername } from '../utils/usernameGenerator';
 import SessionIdDisplay from '../components/SessionIdDisplay';
 import Chat from '../components/Chat';
 import GameControls from '../components/GameControls';
-import { ChatMessage, ActiveSession, getActiveSessions, getLeaderboard, getChatHistory } from '../utils/api';
+import { ChatMessage, ActiveSession, getActiveSessions, getLeaderboard, getChatHistory, saveSoloGame } from '../utils/api';
 import LiveGamesList from '../components/LiveGamesList';
+import { SoloResults } from '../components/SoloResults';
 import { TurnTimer } from '../components/TurnTimer';
 import { HorseRaceLeaderboard } from '../components/HorseRaceLeaderboard';
 import { GlobalRanking } from '../components/GlobalRanking';
 
-type GamePhase = 'landing' | 'playing' | 'waiting';
+type GamePhase = 'landing' | 'playing' | 'waiting' | 'solo_results';
 
 export default function Home() {
   const [gamePhase, setGamePhase] = useState<GamePhase>('landing');
@@ -90,9 +91,7 @@ export default function Home() {
       }
     });
 
-    const cleanupPlayerJoined = onPlayerJoined((data) => {
-      console.log('Player joined:', data);
-    });
+
 
     const cleanupSessionComplete = onSessionComplete((data) => {
       // In continuous mode, session_complete is not used
@@ -120,6 +119,18 @@ export default function Home() {
       // Refresh active sessions when notified
       if (gamePhase === 'landing') {
         getActiveSessions().then(setActiveSessions).catch(console.error);
+      }
+    });
+
+    const cleanupPlayerJoined = onPlayerJoined((data) => {
+      console.log('Player joined:', data);
+      // Refresh session data to update player count and list
+      if (session) {
+        getSession(session.id).then(updatedSession => {
+          setSession(updatedSession);
+          // Also refresh leaderboard to show new player
+          getLeaderboard(session.id).then(data => setLeaderboard(data.leaderboard)).catch(console.error);
+        }).catch(console.error);
       }
     });
 
@@ -378,9 +389,19 @@ export default function Home() {
           isWaiting: false
         });
 
-        // In continuous mode, move to waiting state instead of results
+        // Check if game is complete (8 rounds)
         if (currentRound >= 8) {
-          setGamePhase('waiting');
+          // Save solo game to database
+          try {
+            await saveSoloGame({
+              username,
+              totalScore: newBestScore,
+              completedRounds: 8
+            });
+          } catch (error) {
+            console.error('Failed to save solo game:', error);
+          }
+          setGamePhase('solo_results');
         } else {
           setCurrentRound(currentRound + 1);
           const newTargetColor = generateDistinctColor(targetColor, 50);
@@ -807,8 +828,22 @@ export default function Home() {
               />
             </aside>
           </div>
-        )
-        }
+        )}
+
+        {/* Solo Results Phase */}
+        {gamePhase === 'solo_results' && (
+          <SoloResults
+            username={username}
+            totalScore={singlePlayerScore}
+            completedRounds={8}
+            onPlayAgain={() => {
+              setGamePhase('landing');
+              setSinglePlayerScore(0);
+              setCurrentRound(1);
+              setLeaderboard([]);
+            }}
+          />
+        )}
         {/* New Match Modal */}
         {showNewMatchModal && (
           <div className="modal-overlay animate-fadeIn">

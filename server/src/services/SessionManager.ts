@@ -529,4 +529,59 @@ export class SessionManager {
             timestamp: r.joinedAt
         }));
     }
+
+    // Save solo game result
+    saveSoloGame(username: string, totalScore: number, completedRounds: number, country?: string, ip?: string): string {
+        const gameId = uuidv4();
+        const timestamp = new Date().toISOString();
+
+        const stmt = db.prepare(`
+            INSERT INTO solo_games (id, username, totalScore, completedRounds, country, ip, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+        stmt.run(gameId, username, totalScore, completedRounds, country, ip, timestamp);
+
+        return gameId;
+    }
+
+    // Get solo game rankings
+    getSoloRankings(limit: number = 10): Array<{ name: string; score: number; rounds: number; timestamp: string }> {
+        const stmt = db.prepare(`
+            SELECT username, totalScore, completedRounds, timestamp
+            FROM solo_games
+            ORDER BY totalScore DESC
+            LIMIT ?
+        `);
+        const results = stmt.all(limit) as Array<{ username: string; totalScore: number; completedRounds: number; timestamp: string }>;
+
+        return results.map(r => ({
+            name: r.username,
+            score: r.totalScore,
+            rounds: r.completedRounds,
+            timestamp: r.timestamp
+        }));
+    }
+
+    // Get player's rank in solo games
+    getPlayerSoloRank(username: string, totalScore: number): { rank: number; total: number } {
+        // Count how many players have a higher score
+        const higherScoresStmt = db.prepare(`
+            SELECT COUNT(*) as count
+            FROM solo_games
+            WHERE totalScore > ?
+        `);
+        const higherScores = higherScoresStmt.get(totalScore) as { count: number };
+
+        // Get total number of solo games
+        const totalStmt = db.prepare(`
+            SELECT COUNT(*) as count
+            FROM solo_games
+        `);
+        const total = totalStmt.get() as { count: number };
+
+        return {
+            rank: higherScores.count + 1,
+            total: total.count
+        };
+    }
 }

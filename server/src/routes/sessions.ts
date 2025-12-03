@@ -196,4 +196,43 @@ router.get('/rankings/country/:country', (req: Request, res: Response) => {
     }
 });
 
+// Save solo game result
+router.post('/solo-games', (req: Request, res: Response) => {
+    try {
+        const { username, totalScore, completedRounds, country, ip } = req.body;
+
+        if (!username || totalScore === undefined || completedRounds === undefined) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const gameId = sessionManager.saveSoloGame(username, totalScore, completedRounds, country, ip);
+        res.json({ gameId, success: true });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Get solo game rankings
+router.get('/solo-games/rankings', (req: Request, res: Response) => {
+    try {
+        const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+        const rankings = sessionManager.getSoloRankings(limit);
+        res.json(rankings);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Get player's solo rank
+router.get('/solo-games/rank/:username/:score', (req: Request, res: Response) => {
+    try {
+        const { username, score } = req.params;
+        const totalScore = parseInt(score);
+        const rank = sessionManager.getPlayerSoloRank(username, totalScore);
+        res.json(rank);
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
 export default router;

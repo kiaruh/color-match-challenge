@@ -83,11 +83,23 @@ export function initializeDatabase() {
       FOREIGN KEY (playerId) REFERENCES players(id)
     );
 
+    CREATE TABLE IF NOT EXISTS solo_games (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      totalScore INTEGER NOT NULL,
+      completedRounds INTEGER NOT NULL,
+      country TEXT,
+      ip TEXT,
+      timestamp TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_players_session ON players(sessionId);
     CREATE INDEX IF NOT EXISTS idx_rounds_player ON rounds(playerId);
     CREATE INDEX IF NOT EXISTS idx_rounds_session ON rounds(sessionId);
     CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(sessionId);
     CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics_events(sessionId);
+    CREATE INDEX IF NOT EXISTS idx_solo_games_score ON solo_games(totalScore DESC);
+    CREATE INDEX IF NOT EXISTS idx_solo_games_timestamp ON solo_games(timestamp DESC);
   `);
 
   console.log('✅ Database initialized successfully');

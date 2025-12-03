@@ -256,3 +256,48 @@ export async function getCountryRankings(country: string, limit: number = 10): P
 
     return response.json();
 }
+
+/**
+ * Save solo game result
+ */
+export async function saveSoloGame(data: { username: string; totalScore: number; completedRounds: number; country?: string; ip?: string }): Promise<{ gameId: string; success: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/solo-games`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to save solo game');
+    }
+
+    return response.json();
+}
+
+/**
+ * Get solo game rankings
+ */
+export async function getSoloRankings(limit: number = 10): Promise<Array<{ name: string; score: number; rounds: number; timestamp: string }>> {
+    const response = await fetch(`${API_BASE_URL}/solo-games/rankings?limit=${limit}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch solo rankings');
+    }
+
+    return response.json();
+}
+
+/**
+ * Get player's solo rank
+ */
+export async function getPlayerSoloRank(username: string, score: number): Promise<{ rank: number; total: number }> {
+    const response = await fetch(`${API_BASE_URL}/solo-games/rank/${username}/${score}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch player rank');
+    }
+
+    return response.json();
+}
