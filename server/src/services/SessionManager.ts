@@ -492,41 +492,48 @@ export class SessionManager {
         return { timeout: false };
     }
 
-    // Get global rankings (top players by total score)
+    // Get global rankings (top players by total score from both solo and multiplayer)
     getGlobalRankings(limit: number = 10): Array<{ name: string; country: string; score: number; timestamp: string }> {
         const stmt = db.prepare(`
-            SELECT username, country, totalScore, joinedAt
+            SELECT username as name, country, totalScore as score, joinedAt as timestamp
             FROM players
             WHERE totalScore > 0
-            ORDER BY totalScore DESC
+            UNION ALL
+            SELECT username as name, country, totalScore as score, timestamp
+            FROM solo_games
+            ORDER BY score DESC
             LIMIT ?
         `);
-        const results = stmt.all(limit) as Array<{ username: string; country: string; totalScore: number; joinedAt: string }>;
+        const results = stmt.all(limit) as Array<{ name: string; country: string; score: number; timestamp: string }>;
 
         return results.map(r => ({
-            name: r.username,
+            name: r.name,
             country: r.country || '🌍',
-            score: r.totalScore,
-            timestamp: r.joinedAt
+            score: r.score,
+            timestamp: r.timestamp
         }));
     }
 
-    // Get country-specific rankings
+    // Get country-specific rankings (from both solo and multiplayer)
     getCountryRankings(country: string, limit: number = 10): Array<{ name: string; country: string; score: number; timestamp: string }> {
         const stmt = db.prepare(`
-            SELECT username, country, totalScore, joinedAt
+            SELECT username as name, country, totalScore as score, joinedAt as timestamp
             FROM players
             WHERE totalScore > 0 AND country = ?
-            ORDER BY totalScore DESC
+            UNION ALL
+            SELECT username as name, country, totalScore as score, timestamp
+            FROM solo_games
+            WHERE country = ?
+            ORDER BY score DESC
             LIMIT ?
         `);
-        const results = stmt.all(country, limit) as Array<{ username: string; country: string; totalScore: number; joinedAt: string }>;
+        const results = stmt.all(country, country, limit) as Array<{ name: string; country: string; score: number; timestamp: string }>;
 
         return results.map(r => ({
-            name: r.username,
+            name: r.name,
             country: r.country || '🌍',
-            score: r.totalScore,
-            timestamp: r.joinedAt
+            score: r.score,
+            timestamp: r.timestamp
         }));
     }
 
