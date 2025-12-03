@@ -842,6 +842,13 @@ export default function Home() {
               setCurrentRound(1);
               setLeaderboard([]);
             }}
+            onGoHome={() => {
+              setGamePhase('landing');
+              setSinglePlayerScore(0);
+              setCurrentRound(1);
+              setLeaderboard([]);
+              setIsSinglePlayer(false);
+            }}
           />
         )}
         {/* New Match Modal */}

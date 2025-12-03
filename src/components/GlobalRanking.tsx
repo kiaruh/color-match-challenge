@@ -75,15 +75,31 @@ export const GlobalRanking: React.FC = () => {
         ) : rankings.length === 0 ? (
           <div className="empty-text">No ranked players yet. Be the first!</div>
         ) : (
-          rankings.map((player, index) => (
-            <div key={index} className="ranking-item">
-              <span className="rank">#{index + 1}</span>
-              <span className="country">{player.country}</span>
-              <span className="name">{player.name}</span>
-              <span className="score">{player.score.toLocaleString()}</span>
-              <span className="date">{formatDate(player.timestamp)}</span>
-            </div>
-          ))
+          rankings.map((player, index) => {
+            const isTopThree = index < 3;
+            const rankColors = ['#FFD700', '#C0C0C0', '#CD7F32']; // Gold, Silver, Bronze
+
+            return (
+              <div key={index} className={`ranking-item ${isTopThree ? 'top-three' : ''}`}>
+                <div className="rank-badge" style={{ backgroundColor: isTopThree ? rankColors[index] : 'transparent' }}>
+                  <span className="rank-number">{index + 1}</span>
+                </div>
+                <div className="player-info">
+                  <div className="player-main">
+                    <span className="country-flag">{player.country}</span>
+                    <span className="player-name">{player.name}</span>
+                  </div>
+                  <div className="player-meta">
+                    <span className="game-date">{formatDate(player.timestamp)}</span>
+                  </div>
+                </div>
+                <div className="score-display">
+                  <span className="score-value">{player.score.toLocaleString()}</span>
+                  <span className="score-label">PTS</span>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
@@ -109,102 +125,214 @@ export const GlobalRanking: React.FC = () => {
 
       <style jsx>{`
         .global-ranking {
-          padding: var(--spacing-lg);
+          padding: var(--spacing-2xl);
           border-radius: var(--radius-xl);
-          background: rgba(0, 0, 0, 0.2);
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.4), rgba(20, 20, 40, 0.4));
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           margin-top: var(--spacing-2xl);
           width: 100%;
-          max-width: 600px;
+          max-width: 800px;
         }
 
         .ranking-section {
-          margin-bottom: var(--spacing-lg);
+          margin-bottom: var(--spacing-xl);
         }
 
         .ranking-title {
-          font-size: var(--font-size-lg);
-          font-weight: bold;
-          margin-bottom: var(--spacing-md);
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
+          margin-bottom: var(--spacing-lg);
           text-align: center;
-          color: var(--color-text-primary);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          letter-spacing: 0.5px;
         }
 
         .ranking-list {
           display: flex;
           flex-direction: column;
           gap: var(--spacing-sm);
-          max-height: ${isExpanded ? '600px' : 'none'};
-          overflow-y: ${isExpanded ? 'auto' : 'visible'};
         }
 
         .ranking-item {
-          display: grid;
-          grid-template-columns: 40px 40px 1fr 80px 100px;
+          display: flex;
           align-items: center;
-          padding: var(--spacing-sm);
-          background: rgba(255, 255, 255, 0.05);
+          gap: var(--spacing-md);
+          padding: var(--spacing-md) var(--spacing-lg);
+          background: rgba(255, 255, 255, 0.03);
           border-radius: var(--radius-lg);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.3s ease;
+          min-height: 70px;
+        }
+
+        .ranking-item:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.15);
+          transform: translateX(4px);
+        }
+
+        .ranking-item.top-three {
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .rank-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 48px;
+          height: 48px;
+          border-radius: var(--radius-full);
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          font-weight: 800;
+          font-size: var(--font-size-lg);
+        }
+
+        .rank-number {
+          color: #000;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+        }
+
+        .ranking-item:not(.top-three) .rank-badge {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .ranking-item:not(.top-three) .rank-number {
+          color: var(--color-text-primary);
+          text-shadow: none;
+        }
+
+        .player-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-xs);
+          min-width: 0;
+        }
+
+        .player-main {
+          display: flex;
+          align-items: center;
           gap: var(--spacing-sm);
         }
 
-        .rank {
-          font-weight: bold;
-          color: var(--color-primary);
-          font-size: var(--font-size-sm);
+        .country-flag {
+          font-size: var(--font-size-xl);
+          flex-shrink: 0;
         }
 
-        .country {
-          font-size: 1.2em;
-        }
-
-        .name {
-          font-weight: 500;
+        .player-name {
+          font-size: var(--font-size-lg);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          white-space: nowrap;
         }
 
-        .score {
+        .player-meta {
+          display: flex;
+          gap: var(--spacing-md);
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+        }
+
+        .game-date {
+          opacity: 0.7;
+        }
+
+        .score-display {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+          min-width: 100px;
+        }
+
+        .score-value {
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
           font-family: var(--font-mono);
-          color: var(--color-text-secondary);
-          text-align: right;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          line-height: 1;
         }
 
-        .date {
+        .score-label {
           font-size: var(--font-size-xs);
-          color: var(--color-text-muted);
-          text-align: right;
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          letter-spacing: 1px;
         }
 
-        .loading-text, .empty-text {
+        .loading-text,
+        .empty-text {
           text-align: center;
+          padding: var(--spacing-2xl);
           color: var(--color-text-secondary);
-          padding: var(--spacing-md);
-          font-style: italic;
+          font-size: var(--font-size-base);
         }
 
         .divider {
           height: 1px;
-          background: rgba(255, 255, 255, 0.1);
-          margin: var(--spacing-lg) 0;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+          margin: var(--spacing-2xl) 0;
         }
 
         .expand-button {
           width: 100%;
-          padding: var(--spacing-sm);
-          margin-top: var(--spacing-md);
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: var(--radius-md);
+          padding: var(--spacing-md);
+          margin-top: var(--spacing-lg);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: var(--radius-lg);
           color: var(--color-text-primary);
-          font-size: var(--font-size-sm);
+          font-size: var(--font-size-base);
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s ease;
         }
 
         .expand-button:hover {
-          background: rgba(255, 255, 255, 0.15);
-          transform: translateY(-1px);
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.2);
+          transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+          .global-ranking {
+            padding: var(--spacing-lg);
+          }
+
+          .ranking-item {
+            padding: var(--spacing-sm) var(--spacing-md);
+            min-height: 60px;
+          }
+
+          .rank-badge {
+            min-width: 40px;
+            height: 40px;
+            font-size: var(--font-size-base);
+          }
+
+          .player-name {
+            font-size: var(--font-size-base);
+          }
+
+          .score-value {
+            font-size: var(--font-size-xl);
+          }
+
+          .score-display {
+            min-width: 80px;
+          }
         }
       `}</style>
     </div>

@@ -8,6 +8,7 @@ interface SoloResultsProps {
     totalScore: number;
     completedRounds: number;
     onPlayAgain: () => void;
+    onGoHome: () => void;
 }
 
 interface RankingEntry {
@@ -17,7 +18,7 @@ interface RankingEntry {
     timestamp: string;
 }
 
-export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, completedRounds, onPlayAgain }) => {
+export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, completedRounds, onPlayAgain, onGoHome }) => {
     const [rankings, setRankings] = useState<RankingEntry[]>([]);
     const [playerRank, setPlayerRank] = useState<{ rank: number; total: number } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -126,9 +127,14 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
                 )}
             </div>
 
-            <button className="play-again-btn" onClick={onPlayAgain}>
-                🎮 Play Again
-            </button>
+            <div className="action-buttons">
+                <button className="go-home-btn" onClick={onGoHome}>
+                    🏠 Go Home
+                </button>
+                <button className="play-again-btn" onClick={onPlayAgain}>
+                    🎮 Play Again
+                </button>
+            </div>
 
             <style jsx>{`
                 .solo-results {
@@ -288,22 +294,44 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
                     align-items: center;
                 }
 
-                .play-again-btn {
+                .action-buttons {
+                    display: flex;
+                    gap: var(--spacing-md);
+                    justify-content: center;
+                    align-items: center;
+                }
+
+                .play-again-btn,
+                .go-home-btn {
                     padding: var(--spacing-md) var(--spacing-2xl);
-                    background: var(--gradient-primary);
-                    color: white;
                     border: none;
                     border-radius: var(--radius-full);
                     font-size: var(--font-size-lg);
                     font-weight: 700;
                     cursor: pointer;
                     transition: all 0.3s;
-                    align-self: center;
                 }
 
-                .play-again-btn:hover {
+                .play-again-btn {
+                    background: var(--gradient-primary);
+                    color: white;
+                }
+
+                .go-home-btn {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: var(--color-text-primary);
+                    border: 2px solid rgba(255, 255, 255, 0.2);
+                }
+
+                .play-again-btn:hover,
+                .go-home-btn:hover {
                     transform: translateY(-2px);
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                }
+
+                .go-home-btn:hover {
+                    background: rgba(255, 255, 255, 0.15);
+                    border-color: rgba(255, 255, 255, 0.3);
                 }
             `}</style>
         </div>
