@@ -4,61 +4,62 @@ import React from 'react';
 import { LeaderboardEntry } from '../utils/api';
 
 interface LeaderboardProps {
-    entries: LeaderboardEntry[];
-    currentPlayerId?: string;
-    winner?: LeaderboardEntry | null;
+  entries: LeaderboardEntry[];
+  currentPlayerId?: string;
+  winner?: LeaderboardEntry | null;
+  totalRounds?: number;
 }
 
-export default function Leaderboard({ entries, currentPlayerId, winner }: LeaderboardProps) {
-    return (
-        <div className="leaderboard">
-            <h2 className="leaderboard-title">
-                <span className="trophy-icon">🏆</span>
-                Leaderboard
-            </h2>
+export default function Leaderboard({ entries, currentPlayerId, winner, totalRounds = 3 }: LeaderboardProps) {
+  return (
+    <div className="leaderboard">
+      <h2 className="leaderboard-title">
+        <span className="trophy-icon">🏆</span>
+        Leaderboard
+      </h2>
 
-            {winner && (
-                <div className="winner-announcement animate-scaleIn">
-                    <div className="winner-badge">👑 Winner!</div>
-                    <div className="winner-name">{winner.username}</div>
-                    <div className="winner-score">{winner.bestScore} points</div>
-                </div>
-            )}
+      {winner && (
+        <div className="winner-announcement animate-scaleIn">
+          <div className="winner-badge">👑 Winner!</div>
+          <div className="winner-name">{winner.username}</div>
+          <div className="winner-score">{winner.bestScore} points</div>
+        </div>
+      )}
 
-            <div className="leaderboard-list">
-                {entries.map((entry, index) => (
-                    <div
-                        key={entry.playerId}
-                        className={`leaderboard-entry ${entry.playerId === currentPlayerId ? 'current-player' : ''
-                            } ${entry.isFinished ? 'finished' : 'playing'} animate-slideInUp`}
-                        style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                        <div className="entry-rank">
-                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-                        </div>
-                        <div className="entry-info">
-                            <div className="entry-name">
-                                {entry.username}
-                                {entry.playerId === currentPlayerId && <span className="you-badge">You</span>}
-                            </div>
-                            <div className="entry-progress">
-                                {entry.completedRounds}/3 rounds
-                                {entry.isFinished && <span className="finished-badge">✓ Done</span>}
-                            </div>
-                        </div>
-                        <div className="entry-score">{entry.bestScore}</div>
-                    </div>
-                ))}
-
-                {entries.length === 0 && (
-                    <div className="empty-state">
-                        <div className="empty-icon">👥</div>
-                        <div className="empty-text">Waiting for players...</div>
-                    </div>
-                )}
+      <div className="leaderboard-list">
+        {entries.map((entry, index) => (
+          <div
+            key={entry.playerId}
+            className={`leaderboard-entry ${entry.playerId === currentPlayerId ? 'current-player' : ''
+              } ${entry.isFinished ? 'finished' : 'playing'} animate-slideInUp`}
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            <div className="entry-rank">
+              {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
             </div>
+            <div className="entry-info">
+              <div className="entry-name">
+                {entry.username}
+                {entry.playerId === currentPlayerId && <span className="you-badge">You</span>}
+              </div>
+              <div className="entry-progress">
+                {entry.completedRounds}/{totalRounds} rounds
+                {entry.isFinished && <span className="finished-badge">✓ Done</span>}
+              </div>
+            </div>
+            <div className="entry-score">{entry.bestScore}</div>
+          </div>
+        ))}
 
-            <style jsx>{`
+        {entries.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">👥</div>
+            <div className="empty-text">Waiting for players...</div>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
         .leaderboard {
           display: flex;
           flex-direction: column;
@@ -228,6 +229,6 @@ export default function Leaderboard({ entries, currentPlayerId, winner }: Leader
           }
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

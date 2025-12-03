@@ -555,7 +555,6 @@ export default function Home() {
                       <input
                         type="number"
                         min="1"
-                        max="10"
                         value={totalRounds}
                         onChange={(e) => setTotalRounds(parseInt(e.target.value) || 3)}
                         onFocus={(e) => e.target.select()}
@@ -818,6 +817,7 @@ export default function Home() {
                   entries={leaderboard}
                   currentPlayerId={playerId}
                   winner={winner}
+                  totalRounds={8}
                 />
               )}
 
