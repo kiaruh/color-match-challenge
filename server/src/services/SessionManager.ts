@@ -492,19 +492,22 @@ export class SessionManager {
         return { timeout: false };
     }
 
-    // Get global rankings (top players by total score from both solo and multiplayer)
+    // Get global rankings (top players by total score from both solo and multiplayer - weekly)
     getGlobalRankings(limit: number = 10): Array<{ name: string; country: string; score: number; timestamp: string }> {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
         const stmt = db.prepare(`
             SELECT username as name, country, totalScore as score, joinedAt as timestamp
             FROM players
-            WHERE totalScore > 0
+            WHERE totalScore > 0 AND joinedAt >= ?
             UNION ALL
             SELECT username as name, country, totalScore as score, timestamp
             FROM solo_games
+            WHERE timestamp >= ?
             ORDER BY score DESC
             LIMIT ?
         `);
-        const results = stmt.all(limit) as Array<{ name: string; country: string; score: number; timestamp: string }>;
+        const results = stmt.all(oneWeekAgo, oneWeekAgo, limit) as Array<{ name: string; country: string; score: number; timestamp: string }>;
 
         return results.map(r => ({
             name: r.name,
@@ -514,20 +517,22 @@ export class SessionManager {
         }));
     }
 
-    // Get country-specific rankings (from both solo and multiplayer)
+    // Get country-specific rankings (from both solo and multiplayer - weekly)
     getCountryRankings(country: string, limit: number = 10): Array<{ name: string; country: string; score: number; timestamp: string }> {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
         const stmt = db.prepare(`
             SELECT username as name, country, totalScore as score, joinedAt as timestamp
             FROM players
-            WHERE totalScore > 0 AND country = ?
+            WHERE totalScore > 0 AND country = ? AND joinedAt >= ?
             UNION ALL
             SELECT username as name, country, totalScore as score, timestamp
             FROM solo_games
-            WHERE country = ?
+            WHERE country = ? AND timestamp >= ?
             ORDER BY score DESC
             LIMIT ?
         `);
-        const results = stmt.all(country, country, limit) as Array<{ name: string; country: string; score: number; timestamp: string }>;
+        const results = stmt.all(country, oneWeekAgo, country, oneWeekAgo, limit) as Array<{ name: string; country: string; score: number; timestamp: string }>;
 
         return results.map(r => ({
             name: r.name,

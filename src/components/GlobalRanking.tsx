@@ -69,11 +69,12 @@ export const GlobalRanking: React.FC = () => {
   const renderRankingList = (rankings: RankingEntry[], title: string) => (
     <div className="ranking-section">
       <h3 className="ranking-title">{title}</h3>
+      <div className="weekly-label">Weekly Rankings - Resets Every Monday</div>
       <div className="ranking-list">
         {isLoading ? (
           <div className="loading-text">Loading rankings...</div>
         ) : rankings.length === 0 ? (
-          <div className="empty-text">No ranked players yet. Be the first!</div>
+          <div className="empty-text">No ranked players this week. Be the first!</div>
         ) : (
           rankings.map((player, index) => {
             const isTopThree = index < 3;
@@ -81,15 +82,17 @@ export const GlobalRanking: React.FC = () => {
 
             return (
               <div key={index} className={`ranking-item ${isTopThree ? 'top-three' : ''}`}>
-                <div className="rank-badge" style={{ backgroundColor: isTopThree ? rankColors[index] : 'transparent' }}>
-                  <span className="rank-number">{index + 1}</span>
+                <div className="score-section">
+                  <div className="score-value">{player.score.toLocaleString()}</div>
+                  <div className="score-label">PTS</div>
                 </div>
-                <span className="country-flag">{player.country}</span>
-                <span className="player-name">{player.name}</span>
-                <span className="game-date">{formatDate(player.timestamp)}</span>
-                <div className="score-display">
-                  <span className="score-value">{player.score.toLocaleString()}</span>
-                  <span className="score-label">PTS</span>
+                <div className="info-section">
+                  <div className="rank-badge" style={{ backgroundColor: isTopThree ? rankColors[index] : 'transparent' }}>
+                    <span className="rank-number">{index + 1}</span>
+                  </div>
+                  <span className="game-date">{formatDate(player.timestamp)}</span>
+                  <span className="player-name">{player.name}</span>
+                  <span className="country-flag">{player.country}</span>
                 </div>
               </div>
             );
@@ -136,13 +139,21 @@ export const GlobalRanking: React.FC = () => {
         .ranking-title {
           font-size: var(--font-size-2xl);
           font-weight: 800;
-          margin-bottom: var(--spacing-lg);
+          margin-bottom: var(--spacing-xs);
           text-align: center;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
           letter-spacing: 0.5px;
+        }
+
+        .weekly-label {
+          text-align: center;
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin-bottom: var(--spacing-lg);
+          opacity: 0.8;
         }
 
         .ranking-list {
@@ -154,7 +165,8 @@ export const GlobalRanking: React.FC = () => {
         .ranking-item {
           display: flex;
           align-items: center;
-          gap: var(--spacing-md);
+          justify-content: space-between;
+          gap: var(--spacing-lg);
           padding: var(--spacing-md) var(--spacing-lg);
           background: rgba(255, 255, 255, 0.03);
           border-radius: var(--radius-lg);
@@ -174,16 +186,50 @@ export const GlobalRanking: React.FC = () => {
           border-color: rgba(255, 255, 255, 0.2);
         }
 
+        .score-section {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          min-width: 120px;
+        }
+
+        .score-value {
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
+          font-family: var(--font-mono);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          line-height: 1;
+        }
+
+        .score-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          letter-spacing: 0.5px;
+        }
+
+        .info-section {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-md);
+          flex: 1;
+          justify-content: flex-end;
+        }
+
         .rank-badge {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 44px;
-          height: 44px;
+          min-width: 36px;
+          height: 36px;
           border-radius: var(--radius-full);
           border: 2px solid rgba(255, 255, 255, 0.2);
           font-weight: 800;
-          font-size: var(--font-size-base);
+          font-size: var(--font-size-sm);
           flex-shrink: 0;
         }
 
@@ -202,56 +248,28 @@ export const GlobalRanking: React.FC = () => {
           text-shadow: none;
         }
 
-        .country-flag {
-          font-size: var(--font-size-xl);
+        .game-date {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          opacity: 0.7;
           flex-shrink: 0;
+          min-width: 80px;
         }
 
         .player-name {
-          flex: 1;
           font-size: var(--font-size-base);
           font-weight: 600;
           color: var(--color-text-primary);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          min-width: 0;
+          min-width: 100px;
+          max-width: 200px;
         }
 
-        .game-date {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          opacity: 0.7;
-          flex-shrink: 0;
-          min-width: 90px;
-          text-align: right;
-        }
-
-        .score-display {
-          display: flex;
-          align-items: baseline;
-          gap: var(--spacing-xs);
-          flex-shrink: 0;
-          min-width: 110px;
-          justify-content: flex-end;
-        }
-
-        .score-value {
+        .country-flag {
           font-size: var(--font-size-xl);
-          font-weight: 800;
-          font-family: var(--font-mono);
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          line-height: 1;
-        }
-
-        .score-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          letter-spacing: 0.5px;
+          flex-shrink: 0;
         }
 
         .loading-text,
