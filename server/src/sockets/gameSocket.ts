@@ -70,19 +70,31 @@ export const setupGameSocket = (io: SocketIOServer) => {
                 const leaderboardData = sessionManager.getLeaderboard(sessionId);
                 io.to(sessionId).emit('leaderboard_updated', leaderboardData);
 
-                // If all players are ready, advance to next round
+                // If all players are ready, check if we should advance or end the game
                 if (result.allPlayersReady) {
-                    const nextRoundData = sessionManager.advanceToNextRound(sessionId);
+                    const session = sessionManager.getSession(sessionId);
+                    const totalRounds = session?.totalRounds || 3;
 
-                    // Broadcast next round to all players
-                    io.to(sessionId).emit('next_round', {
-                        roundNumber: nextRoundData.newRound,
-                        targetColor: nextRoundData.newColors.startColor,
-                    });
+                    // Check if we've reached the round limit
+                    if (session && session.currentRound >= totalRounds) {
+                        // Game is complete - emit session_complete
+                        const leaderboard = sessionManager.getLeaderboard(sessionId);
+                        const winner = leaderboard.leaderboard[0] || null;
+                        io.to(sessionId).emit('session_complete', { winner });
+                    } else {
+                        // Advance to next round
+                        const nextRoundData = sessionManager.advanceToNextRound(sessionId);
 
-                    // Start first turn of new round
-                    const turnData = sessionManager.startTurn(sessionId);
-                    io.to(sessionId).emit('turn_started', turnData);
+                        // Broadcast next round to all players
+                        io.to(sessionId).emit('next_round', {
+                            roundNumber: nextRoundData.newRound,
+                            targetColor: nextRoundData.newColors.startColor,
+                        });
+
+                        // Start first turn of new round
+                        const turnData = sessionManager.startTurn(sessionId);
+                        io.to(sessionId).emit('turn_started', turnData);
+                    }
                 } else {
                     // Start next turn
                     const turnData = sessionManager.startTurn(sessionId);
