@@ -140,6 +140,17 @@ export class SessionManager {
 
     // Remove a player from a session
     removePlayer(playerId: string): void {
+        // Delete dependent records first
+        const deleteRounds = db.prepare('DELETE FROM rounds WHERE playerId = ?');
+        deleteRounds.run(playerId);
+
+        const deleteChats = db.prepare('DELETE FROM chat_messages WHERE playerId = ?');
+        deleteChats.run(playerId);
+
+        const deleteAnalytics = db.prepare('DELETE FROM analytics_events WHERE playerId = ?');
+        deleteAnalytics.run(playerId);
+
+        // Delete the player
         const stmt = db.prepare('DELETE FROM players WHERE id = ?');
         stmt.run(playerId);
     }
@@ -249,6 +260,42 @@ export class SessionManager {
         }
 
         const newRound = session.currentRound + 1;
+        const newStartColor = this.generateRandomColor();
+        const newEndColor = this.generateRandomColor();
+
+        // Update session round and colors
+        const sessionStmt = db.prepare(`
+      UPDATE sessions
+      SET currentRound = ?, startColor = ?, endColor = ?
+      WHERE id = ?
+    `);
+        sessionStmt.run(newRound, newStartColor, newEndColor, sessionId);
+
+        // Reset all players' waiting state
+        const playersStmt = db.prepare(`
+      UPDATE players
+      SET isWaiting = 0
+      WHERE sessionId = ?
+    `);
+        playersStmt.run(sessionId);
+
+        return {
+            newRound,
+            newColors: {
+                startColor: newStartColor,
+                endColor: newEndColor,
+            },
+        };
+    }
+
+    // Reset session for new match (keep scores, reset rounds)
+    resetSessionForNewMatch(sessionId: string): { newRound: number; newColors: { startColor: string; endColor: string } } {
+        const session = this.getSession(sessionId);
+        if (!session) {
+            throw new Error('Session not found');
+        }
+
+        const newRound = 1;
         const newStartColor = this.generateRandomColor();
         const newEndColor = this.generateRandomColor();
 

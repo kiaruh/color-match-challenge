@@ -5,6 +5,12 @@ const sessionManager = new SessionManager();
 
 let ioInstance: SocketIOServer | null = null;
 
+// Map to track socket -> { sessionId, playerId }
+const socketPlayerMap = new Map<string, { sessionId: string; playerId: string }>();
+
+// Map to track session -> Set<playerId> for new match votes
+const sessionVotes = new Map<string, Set<string>>();
+
 export const broadcastSessionsUpdate = () => {
     if (ioInstance) {
         ioInstance.emit('sessions_updated');
@@ -25,6 +31,7 @@ export const setupGameSocket = (io: SocketIOServer) => {
             }
 
             socket.join(sessionId);
+            socketPlayerMap.set(socket.id, { sessionId, playerId });
             console.log(`👤 Player ${playerId} joined session ${sessionId}`);
 
             // Notify other players in the session
@@ -109,6 +116,7 @@ export const setupGameSocket = (io: SocketIOServer) => {
                 sessionManager.removePlayer(playerId);
 
                 socket.leave(sessionId);
+                socketPlayerMap.delete(socket.id); // Remove from map
 
                 // Broadcast updated leaderboard to remaining players
                 const leaderboardData = sessionManager.getLeaderboard(sessionId);
@@ -125,9 +133,103 @@ export const setupGameSocket = (io: SocketIOServer) => {
             }
         });
 
+        // Handle Request New Match
+        socket.on('request_new_match', ({ sessionId, playerId }) => {
+            if (!sessionId || !playerId) return;
+
+            // Initialize votes for this session if not exists
+            if (!sessionVotes.has(sessionId)) {
+                sessionVotes.set(sessionId, new Set());
+            }
+
+            // Clear previous votes if any (start fresh)
+            sessionVotes.get(sessionId)?.clear();
+            sessionVotes.get(sessionId)?.add(playerId);
+
+            // Broadcast request to all players
+            io.to(sessionId).emit('new_match_requested', {
+                requestedBy: playerId
+            });
+        });
+
+        // Handle Vote New Match
+        socket.on('vote_new_match', ({ sessionId, playerId, vote }) => {
+            if (!sessionId || !playerId) return;
+
+            if (!sessionVotes.has(sessionId)) {
+                sessionVotes.set(sessionId, new Set());
+            }
+
+            const votes = sessionVotes.get(sessionId)!;
+            if (vote) {
+                votes.add(playerId);
+            } else {
+                votes.delete(playerId);
+            }
+
+            // Check if all players have voted YES
+            const players = sessionManager.getSessionPlayers(sessionId);
+            // We only care about players currently in the session (connected)
+            // But getSessionPlayers returns DB players.
+            // Ideally we check connected sockets in the room.
+            const room = io.sockets.adapter.rooms.get(sessionId);
+            const connectedCount = room ? room.size : 0;
+
+            // If votes match connected count (or DB count if we want to be strict)
+            // Let's use connected count as proxy for "active" players
+            if (votes.size >= connectedCount && connectedCount > 0) {
+                // Start new match
+                try {
+                    const result = sessionManager.resetSessionForNewMatch(sessionId);
+
+                    // Clear votes
+                    sessionVotes.delete(sessionId);
+
+                    // Broadcast new match started
+                    io.to(sessionId).emit('new_match_started', {
+                        roundNumber: result.newRound,
+                        targetColor: result.newColors.startColor
+                    });
+                } catch (error) {
+                    console.error('Error starting new match:', error);
+                }
+            }
+        });
+
         // Handle disconnection
         socket.on('disconnect', () => {
             console.log(`🔌 Client disconnected: ${socket.id}`);
+
+            const sessionInfo = socketPlayerMap.get(socket.id);
+            if (sessionInfo) {
+                const { sessionId, playerId } = sessionInfo;
+                console.log(`👻 Ghost player detected: ${playerId} in session ${sessionId}`);
+
+                try {
+                    // Remove player from database
+                    sessionManager.removePlayer(playerId);
+
+                    // Broadcast updated leaderboard
+                    const leaderboardData = sessionManager.getLeaderboard(sessionId);
+                    io.to(sessionId).emit('leaderboard_updated', leaderboardData);
+
+                    // Broadcast player quit
+                    io.to(sessionId).emit('player_quit', { playerId });
+
+                    // Update live games
+                    broadcastSessionsUpdate();
+
+                    // Clean up map
+                    socketPlayerMap.delete(socket.id);
+
+                    // Remove from votes if present
+                    if (sessionVotes.has(sessionId)) {
+                        sessionVotes.get(sessionId)?.delete(playerId);
+                    }
+                } catch (error) {
+                    console.error('Error removing ghost player:', error);
+                }
+            }
         });
     });
 }

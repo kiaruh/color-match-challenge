@@ -41,6 +41,7 @@ export default function Home() {
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [sessionPassword, setSessionPassword] = useState('');
+  const [showNewMatchModal, setShowNewMatchModal] = useState(false);
 
   // Live games state
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
@@ -60,7 +61,11 @@ export default function Home() {
     onSessionsUpdate,
     onError,
     sendChatMessage,
-    quitSession
+    quitSession,
+    requestNewMatch,
+    voteNewMatch,
+    onNewMatchRequested,
+    onNewMatchStarted
   } = useWebSocket();
 
   // Set up WebSocket event listeners
@@ -109,6 +114,18 @@ export default function Home() {
       setError(error.message);
     });
 
+    const cleanupNewMatchRequested = onNewMatchRequested((data) => {
+      setShowNewMatchModal(true);
+    });
+
+    const cleanupNewMatchStarted = onNewMatchStarted((data) => {
+      setCurrentRound(data.roundNumber);
+      setTargetColor(data.targetColor);
+      setGamePhase('playing');
+      setShowNewMatchModal(false);
+      setWinner(null);
+    });
+
     return () => {
       cleanupLeaderboard();
       cleanupPlayerJoined();
@@ -118,8 +135,10 @@ export default function Home() {
       cleanupPlayerQuit();
       cleanupSessionsUpdate();
       cleanupError();
+      cleanupNewMatchRequested();
+      cleanupNewMatchStarted();
     };
-  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onNextRound, onChatMessage, onPlayerQuit, onSessionsUpdate, onError]);
+  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onNextRound, onChatMessage, onPlayerQuit, onSessionsUpdate, onError, onNewMatchRequested, onNewMatchStarted]);
 
   // Poll for active sessions on landing page
   useEffect(() => {
@@ -383,8 +402,18 @@ export default function Home() {
   };
 
   const handleRematch = async () => {
-    // For now, just start a new game with same settings
-    handlePlayAgain();
+    if (session && playerId) {
+      requestNewMatch(session.id, playerId);
+    }
+  };
+
+  const handleVoteNewMatch = (vote: boolean) => {
+    if (session && playerId) {
+      voteNewMatch(session.id, playerId, vote);
+      if (!vote) {
+        setShowNewMatchModal(false);
+      }
+    }
   };
 
   const handleSendMessage = (message: string) => {
@@ -678,6 +707,31 @@ export default function Home() {
           </div>
         )
         }
+        {/* New Match Modal */}
+        {showNewMatchModal && (
+          <div className="modal-overlay animate-fadeIn">
+            <div className="modal-content glass">
+              <h3 className="modal-title">New Match Requested</h3>
+              <p className="modal-text">
+                A player has requested to start a new match. Do you want to join?
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="modal-btn confirm"
+                  onClick={() => handleVoteNewMatch(true)}
+                >
+                  ✅ Yes, Let's Play!
+                </button>
+                <button
+                  className="modal-btn cancel"
+                  onClick={() => handleVoteNewMatch(false)}
+                >
+                  ❌ No, Thanks
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main >
 
       <style jsx>{`
@@ -796,6 +850,79 @@ export default function Home() {
         .primary-button:hover:not(:disabled) {
           transform: translateY(-2px);
           box-shadow: var(--shadow-glow);
+        }
+
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(5px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal-content {
+          background: var(--color-bg-card);
+          padding: var(--spacing-2xl);
+          border-radius: var(--radius-2xl);
+          border: 1px solid var(--color-border);
+          max-width: 400px;
+          width: 90%;
+          text-align: center;
+          box-shadow: var(--shadow-2xl);
+        }
+
+        .modal-title {
+          font-size: var(--font-size-2xl);
+          font-weight: 700;
+          margin-bottom: var(--spacing-md);
+          color: var(--color-text-primary);
+        }
+
+        .modal-text {
+          color: var(--color-text-secondary);
+          margin-bottom: var(--spacing-xl);
+          line-height: 1.5;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: var(--spacing-md);
+          justify-content: center;
+        }
+
+        .modal-btn {
+          padding: var(--spacing-md) var(--spacing-lg);
+          border-radius: var(--radius-lg);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-base);
+          border: none;
+        }
+
+        .modal-btn.confirm {
+          background: var(--color-success);
+          color: white;
+        }
+
+        .modal-btn.confirm:hover {
+          transform: translateY(-2px);
+          filter: brightness(1.1);
+        }
+
+        .modal-btn.cancel {
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+        }
+
+        .modal-btn.cancel:hover {
+          background: var(--color-border);
+          transform: translateY(-2px);
         }
 
         .primary-button:disabled {

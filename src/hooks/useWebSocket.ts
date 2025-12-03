@@ -21,6 +21,10 @@ interface UseWebSocketReturn {
     onError: (callback: (error: { message: string }) => void) => () => void;
     sendChatMessage: (sessionId: string, playerId: string, username: string, message: string) => void;
     quitSession: (sessionId: string, playerId: string) => void;
+    requestNewMatch: (sessionId: string, playerId: string) => void;
+    voteNewMatch: (sessionId: string, playerId: string, vote: boolean) => void;
+    onNewMatchRequested: (callback: (data: { requestedBy: string }) => void) => () => void;
+    onNewMatchStarted: (callback: (data: { roundNumber: number; targetColor: string }) => void) => () => void;
 }
 
 interface RoundData {
@@ -184,6 +188,38 @@ export function useWebSocket(): UseWebSocketReturn {
         return () => { };
     };
 
+    const requestNewMatch = (sessionId: string, playerId: string) => {
+        if (socketRef.current) {
+            socketRef.current.emit('request_new_match', { sessionId, playerId });
+        }
+    };
+
+    const voteNewMatch = (sessionId: string, playerId: string, vote: boolean) => {
+        if (socketRef.current) {
+            socketRef.current.emit('vote_new_match', { sessionId, playerId, vote });
+        }
+    };
+
+    const onNewMatchRequested = (callback: (data: { requestedBy: string }) => void) => {
+        if (socketRef.current) {
+            socketRef.current.on('new_match_requested', callback);
+            return () => {
+                socketRef.current?.off('new_match_requested', callback);
+            };
+        }
+        return () => { };
+    };
+
+    const onNewMatchStarted = (callback: (data: { roundNumber: number; targetColor: string }) => void) => {
+        if (socketRef.current) {
+            socketRef.current.on('new_match_started', callback);
+            return () => {
+                socketRef.current?.off('new_match_started', callback);
+            };
+        }
+        return () => { };
+    };
+
     return {
         socket: socketRef.current,
         isConnected,
@@ -199,5 +235,9 @@ export function useWebSocket(): UseWebSocketReturn {
         onError,
         sendChatMessage,
         quitSession,
+        requestNewMatch,
+        voteNewMatch,
+        onNewMatchRequested,
+        onNewMatchStarted,
     };
 }
