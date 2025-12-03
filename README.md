@@ -1,182 +1,94 @@
 # 🎨 Color Match Challenge
 
-A multiplayer color perception game built with Next.js and Socket.IO. Test your ability to match colors using RGB sliders and compete with others in real-time!
+A multiplayer color perception game built with Next.js 16 and Socket.IO. Test your ability to match colors using RGB sliders, compete with others in real-time, and climb the global leaderboards!
 
-![Color Match Challenge](https://img.shields.io/badge/Next.js-16.0.4-black?style=for-the-badge&logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16.0.7-black?style=for-the-badge&logo=next.js)
+![React](https://img.shields.io/badge/React-19.2.1-61DAFB?style=for-the-badge&logo=react)
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8.1-010101?style=for-the-badge&logo=socket.io)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)
 
 ## 🎮 Features
 
-- **🎨 Color Perception Test** - Match target colors using RGB sliders
-- **⚡ Real-time Multiplayer** - Compete with others via WebSocket connections
-- **🏆 Live Leaderboard** - See scores update in real-time
-- **📊 Scoring System** - Points based on color accuracy
-- **🎯 3 Round Games** - Complete sessions with varying difficulty
+### 🕹️ Game Modes
+- **Solo Challenge**: Test your skills in an 8-round session. Your results are saved to the global rankings!
+- **Multiplayer**: Create custom rooms with unlimited rounds. Compete against friends in real-time.
 
-## 🚀 Live Demo
+### 🏆 Rankings & Stats
+- **Global Leaderboard**: See top players from around the world.
+- **Country Rankings**: Automatically detects your location to show local champions.
+- **Horse Race Animation**: Visualize your performance against top players after every solo game.
+- **Detailed Stats**: Track your accuracy, total score, and improvement over time.
 
-**Repository:** [github.com/kiaruh/color-match-challenge](https://github.com/kiaruh/color-match-challenge)
+### ✨ Immersive Experience
+- **Audio Feedback**: Distinct sounds for different score ranges (Excellent, Good, Fair, Poor).
+- **Chat System**: Real-time chat with ICQ-style notification sounds (toggleable).
+- **Visual Effects**: Floating score deltas, glassmorphism UI, and smooth animations.
 
-## 🛠️ Tech Stack
+### 🛠️ Tech Stack
 
-### Frontend
-- **Next.js 16** - React framework with App Router
-- **React 19** - UI library
-- **TypeScript** - Type safety
-- **Tailwind CSS 4** - Styling
-- **Socket.IO Client** - Real-time communication
+- **Frontend**: Next.js 16.0.7, React 19.2.1, Tailwind CSS 4
+- **Backend**: Node.js, Express, Socket.IO
+- **Database**: Better-SQLite3 (fast, serverless, reliable)
+- **Type Safety**: Full TypeScript support across full stack
 
-### Backend
-- **Express** - Web server
-- **Socket.IO** - WebSocket server
-- **Better-SQLite3** - Database
-- **TypeScript** - Type safety
-
-## 📦 Installation
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
-### Clone Repository
+### Installation
 
-```bash
-git clone git@github.com:kiaruh/color-match-challenge.git
-cd color-match-challenge
-```
+1. **Clone the repository**
+   ```bash
+   git clone git@github.com:kiaruh/color-match-challenge.git
+   cd color-match-challenge
+   ```
 
-### Install Dependencies
+2. **Install Dependencies**
+   ```bash
+   # Install frontend dependencies
+   npm install
 
-```bash
-# Install frontend dependencies
-npm install
+   # Install backend dependencies
+   cd server
+   npm install
+   cd ..
+   ```
 
-# Install backend dependencies
-cd server
-npm install
-cd ..
-```
+3. **Run Locally**
+   You need two terminal windows:
 
-### Environment Setup
+   **Terminal 1 (Backend):**
+   ```bash
+   cd server
+   npm run dev
+   ```
+   *Server runs on http://localhost:3001*
 
-Copy the example environment file:
+   **Terminal 2 (Frontend):**
+   ```bash
+   npm run dev
+   ```
+   *Frontend runs on http://localhost:3000*
 
-```bash
-cp .env.example .env.local
-```
+4. **Play!**
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Edit `.env.local` with your configuration (defaults work for local development).
+## 🎨 Scoring System
 
-## 🏃 Running Locally
-
-You need to run both the frontend and backend servers:
-
-### Terminal 1 - Backend Server
-
-```bash
-cd server
-npm run dev
-```
-
-Server runs on `http://localhost:3001`
-
-### Terminal 2 - Frontend
-
-```bash
-npm run dev
-```
-
-Frontend runs on `http://localhost:3000`
-
-Open [http://localhost:3000](http://localhost:3000) in your browser to play!
-
-## 🎯 How to Play
-
-1. **Create or Join a Game**
-   - Click "Create New Game" to start a session
-   - Share the Session ID with friends to play together
-   - Or enter a Session ID to join an existing game
-
-2. **Match the Color**
-   - Use the RGB sliders to match the target color
-   - The closer your match, the higher your score
-   - Complete 3 rounds per game
-
-3. **Compete**
-   - Watch the leaderboard update in real-time
-   - See how you rank against other players
-   - Winner is announced at the end!
-
-## 📁 Project Structure
-
-```
-color-match-challenge/
-├── src/                      # Frontend source
-│   ├── app/                  # Next.js app directory
-│   │   ├── page.tsx         # Main game page
-│   │   ├── layout.tsx       # Root layout
-│   │   └── globals.css      # Global styles
-│   ├── components/          # React components
-│   │   ├── GameBoard.tsx    # Main game interface
-│   │   ├── ColorPicker.tsx  # RGB color selector
-│   │   └── Leaderboard.tsx  # Score display
-│   ├── hooks/               # Custom React hooks
-│   │   └── useWebSocket.ts  # WebSocket connection
-│   └── utils/               # Utility functions
-│       ├── api.ts           # API client
-│       └── colorUtils.ts    # Color calculations
-├── server/                   # Backend source
-│   └── src/
-│       ├── index.ts         # Express server
-│       ├── db/              # Database setup
-│       ├── routes/          # API routes
-│       ├── services/        # Business logic
-│       └── sockets/         # WebSocket handlers
-└── public/                   # Static assets
-```
-
-## 🚀 Deployment
-
-### Deploy to Vercel (Recommended)
-
-1. Push your code to GitHub (already done!)
-2. Visit [vercel.com](https://vercel.com)
-3. Import your repository: `kiaruh/color-match-challenge`
-4. Vercel will auto-detect Next.js and deploy both frontend and backend
-5. Your app will be live at `https://your-app.vercel.app`
-
-### Environment Variables for Production
-
-Set these in your deployment platform:
-
-```env
-NEXT_PUBLIC_API_URL=https://your-app.vercel.app
-NEXT_PUBLIC_WS_URL=https://your-app.vercel.app
-```
-
-## 🎨 Color Matching Algorithm
-
-The game uses Euclidean distance in RGB color space to calculate accuracy:
+We use the **Euclidean distance** in RGB space to calculate accuracy:
 
 ```typescript
 distance = √[(r₁-r₂)² + (g₁-g₂)² + (b₁-b₂)²]
 score = max(0, 1000 - distance)
 ```
 
-Perfect match = 1000 points!
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-
-- Report bugs
-- Suggest features
-- Submit pull requests
-
-## 📄 License
-
-MIT License - feel free to use this project for learning or your own games!
+- **Perfect Match**: 1000 points
+- **Excellent**: > 900 points (Fanfare sound 🎺)
+- **Good**: > 700 points (Chime sound 🔔)
+- **Fair**: > 400 points (Beep sound 🔉)
+- **Poor**: < 400 points (Trombone sound 📉)
 
 ## 👤 Author
 
@@ -184,12 +96,6 @@ MIT License - feel free to use this project for learning or your own games!
 - GitHub: [@kiaruh](https://github.com/kiaruh)
 - Email: nikoz.li@gmail.com
 
-## 🙏 Acknowledgments
+## 📄 License
 
-- Built with [Next.js](https://nextjs.org/)
-- Real-time features powered by [Socket.IO](https://socket.io/)
-- Styled with [Tailwind CSS](https://tailwindcss.com/)
-
----
-
-**Enjoy the game! 🎨✨**
+MIT License. Feel free to use this project for learning!
