@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getSoloRankings, getPlayerSoloRank } from '../utils/api';
+import { getSoloRankings, getPlayerSoloRank, saveSoloGame } from '../utils/api';
 
 interface SoloResultsProps {
     username: string;
@@ -22,10 +22,21 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
     const [rankings, setRankings] = useState<RankingEntry[]>([]);
     const [playerRank, setPlayerRank] = useState<{ rank: number; total: number } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'error'>('saving');
 
     useEffect(() => {
-        const fetchData = async () => {
+        const saveAndFetch = async () => {
             try {
+                // 1. Save the game first
+                setSaveStatus('saving');
+                await saveSoloGame({
+                    username,
+                    totalScore,
+                    completedRounds
+                });
+                setSaveStatus('saved');
+
+                // 2. Then fetch rankings
                 const [rankingsData, rankData] = await Promise.all([
                     getSoloRankings(10),
                     getPlayerSoloRank(username, totalScore)
@@ -33,18 +44,20 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
                 setRankings(rankingsData);
                 setPlayerRank(rankData);
             } catch (error) {
-                console.error('Failed to fetch solo results:', error);
+                console.error('Failed to save/fetch solo results:', error);
+                setSaveStatus('error');
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchData();
-    }, [username, totalScore]);
+        saveAndFetch();
+    }, [username, totalScore, completedRounds]);
 
     const getPlayerPosition = (score: number): number => {
         // Calculate position based on score (0-100%)
         const maxScore = rankings.length > 0 ? rankings[0].score : totalScore;
+        if (maxScore === 0) return 0;
         return Math.max(0, Math.min(100, (score / maxScore) * 100));
     };
 
@@ -59,9 +72,13 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
                     <div className="score-value">{totalScore.toLocaleString()}</div>
                     <div className="rounds-info">{completedRounds} rounds completed</div>
                 </div>
-                {playerRank && (
+                {playerRank ? (
                     <div className="rank-info">
                         Rank: <span className="rank-number">#{playerRank.rank}</span> out of {playerRank.total} players
+                    </div>
+                ) : (
+                    <div className="rank-info">
+                        {saveStatus === 'saving' ? 'Saving result...' : 'Calculating rank...'}
                     </div>
                 )}
             </div>
@@ -69,7 +86,9 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
             <div className="horse-race-container">
                 <h3>🏆 Top 10 Rankings</h3>
                 {isLoading ? (
-                    <div className="loading">Loading rankings...</div>
+                    <div className="loading">
+                        {saveStatus === 'saving' ? 'Saving your score...' : 'Loading leaderboard...'}
+                    </div>
                 ) : (
                     <div className="race-track">
                         {rankings.map((entry, index) => {
@@ -101,10 +120,10 @@ export const SoloResults: React.FC<SoloResultsProps> = ({ username, totalScore, 
                             );
                         })}
 
-                        {!isPlayerInTop10 && (
+                        {!isPlayerInTop10 && playerRank && (
                             <div className="race-lane current-player">
                                 <div className="lane-info">
-                                    <span className="lane-rank">#{playerRank?.rank || '?'}</span>
+                                    <span className="lane-rank">#{playerRank.rank}</span>
                                     <span className="lane-name">{username} (You)</span>
                                     <span className="lane-score">{totalScore.toLocaleString()}</span>
                                 </div>

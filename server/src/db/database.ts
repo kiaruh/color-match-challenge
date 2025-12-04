@@ -100,6 +100,8 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_analytics_session ON analytics_events(sessionId);
     CREATE INDEX IF NOT EXISTS idx_solo_games_score ON solo_games(totalScore DESC);
     CREATE INDEX IF NOT EXISTS idx_solo_games_timestamp ON solo_games(timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_players_score ON players(totalScore DESC);
+    CREATE INDEX IF NOT EXISTS idx_players_joined ON players(joinedAt DESC);
   `);
 
   console.log('✅ Database initialized successfully');

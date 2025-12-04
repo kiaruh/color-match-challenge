@@ -11,46 +11,62 @@ interface RankingEntry {
 export const GlobalRanking: React.FC = () => {
   const [globalRankings, setGlobalRankings] = useState<RankingEntry[]>([]);
   const [countryRankings, setCountryRankings] = useState<RankingEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingGlobal, setIsLoadingGlobal] = useState(true);
+  const [isLoadingCountry, setIsLoadingCountry] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
   const [userCountry, setUserCountry] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRankings = async () => {
-      try {
-        // Fetch global rankings (10 or 300 based on expand state)
-        const limit = isExpanded ? 300 : 10;
-        const global = await getGlobalRankings(limit);
-        setGlobalRankings(global);
+      const limit = isExpanded ? 300 : 10;
 
-        // Detect user country from IP (simple client-side detection)
+      // 1. Fetch Global Rankings immediately
+      setIsLoadingGlobal(true);
+      getGlobalRankings(limit)
+        .then(data => {
+          setGlobalRankings(data);
+          setIsLoadingGlobal(false);
+        })
+        .catch(err => {
+          console.error('Failed to fetch global rankings:', err);
+          setIsLoadingGlobal(false);
+        });
+
+      // 2. Fetch Country Rankings (independent)
+      // We only need to detect country once, but we need to fetch rankings on refresh
+      const detectAndFetchCountry = async () => {
         try {
-          const ipResponse = await fetch('https://ipapi.co/json/');
-          const ipData = await ipResponse.json();
-          if (ipData.country_code) {
-            const countryFlag = getCountryFlag(ipData.country_code);
-            setUserCountry(countryFlag);
+          let countryFlag = userCountry;
 
-            // Fetch country-specific rankings
-            const country = await getCountryRankings(countryFlag, limit);
-            setCountryRankings(country);
+          if (!countryFlag) {
+            const ipResponse = await fetch('https://ipapi.co/json/');
+            const ipData = await ipResponse.json();
+            if (ipData.country_code) {
+              countryFlag = getCountryFlag(ipData.country_code);
+              setUserCountry(countryFlag);
+            }
+          }
+
+          if (countryFlag) {
+            setIsLoadingCountry(true);
+            const countryData = await getCountryRankings(countryFlag, limit);
+            setCountryRankings(countryData);
+            setIsLoadingCountry(false);
           }
         } catch (err) {
-          console.error('Failed to detect country:', err);
+          console.error('Failed to fetch country rankings:', err);
+          setIsLoadingCountry(false);
         }
-      } catch (error) {
-        console.error('Failed to fetch rankings:', error);
-      } finally {
-        setIsLoading(false);
-      }
+      };
+
+      detectAndFetchCountry();
     };
 
     fetchRankings();
 
-    // Refresh every minute
     const interval = setInterval(fetchRankings, 60000);
     return () => clearInterval(interval);
-  }, [isExpanded]);
+  }, [isExpanded]); // We don't include userCountry to avoid loops, handled inside
 
   const getCountryFlag = (countryCode: string): string => {
     // Convert country code to flag emoji
@@ -66,12 +82,12 @@ export const GlobalRanking: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const renderRankingList = (rankings: RankingEntry[], title: string) => (
+  const renderRankingList = (rankings: RankingEntry[], title: string, loading: boolean) => (
     <div className="ranking-section">
       <h3 className="ranking-title">{title}</h3>
       <div className="weekly-label">Weekly Rankings - Resets Every Monday</div>
       <div className="ranking-list">
-        {isLoading ? (
+        {loading ? (
           <div className="loading-text">Loading rankings...</div>
         ) : rankings.length === 0 ? (
           <div className="empty-text">No ranked players this week. Be the first!</div>
@@ -82,17 +98,15 @@ export const GlobalRanking: React.FC = () => {
 
             return (
               <div key={index} className={`ranking-item ${isTopThree ? 'top-three' : ''}`}>
-                <div className="score-section">
-                  <div className="score-value">{player.score.toLocaleString()}</div>
-                  <div className="score-label">PTS</div>
+                <div className="rank-badge" style={{ backgroundColor: isTopThree ? rankColors[index] : 'transparent' }}>
+                  <span className="rank-number">#{index + 1}</span>
                 </div>
-                <div className="info-section">
-                  <div className="rank-badge" style={{ backgroundColor: isTopThree ? rankColors[index] : 'transparent' }}>
-                    <span className="rank-number">{index + 1}</span>
-                  </div>
-                  <span className="game-date">{formatDate(player.timestamp)}</span>
-                  <span className="player-name">{player.name}</span>
-                  <span className="country-flag">{player.country}</span>
+                <span className="country-flag">{player.country}</span>
+                <span className="player-name">{player.name}</span>
+                <div className="spacer"></div>
+                <div className="score-display">
+                  <span className="score-value">{player.score.toLocaleString()}</span>
+                  <span className="score-label">PTS</span>
                 </div>
               </div>
             );
@@ -104,12 +118,12 @@ export const GlobalRanking: React.FC = () => {
 
   return (
     <div className="global-ranking glass">
-      {renderRankingList(globalRankings, '🌍 Global Rankings')}
+      {renderRankingList(globalRankings, '🌍 Global Rankings', isLoadingGlobal)}
 
-      {userCountry && countryRankings.length > 0 && (
+      {userCountry && (
         <>
           <div className="divider"></div>
-          {renderRankingList(countryRankings, `${userCountry} Country Rankings`)}
+          {renderRankingList(countryRankings, `${userCountry} Country Rankings`, isLoadingCountry)}
         </>
       )}
 
@@ -165,8 +179,7 @@ export const GlobalRanking: React.FC = () => {
         .ranking-item {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: var(--spacing-lg);
+          gap: var(--spacing-md);
           padding: var(--spacing-md) var(--spacing-lg);
           background: rgba(255, 255, 255, 0.03);
           border-radius: var(--radius-lg);
@@ -184,40 +197,6 @@ export const GlobalRanking: React.FC = () => {
         .ranking-item.top-three {
           background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
           border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .score-section {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-          min-width: 120px;
-        }
-
-        .score-value {
-          font-size: var(--font-size-2xl);
-          font-weight: 800;
-          font-family: var(--font-mono);
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          line-height: 1;
-        }
-
-        .score-label {
-          font-size: var(--font-size-xs);
-          font-weight: 700;
-          color: var(--color-text-secondary);
-          letter-spacing: 0.5px;
-        }
-
-        .info-section {
-          display: flex;
-          align-items: center;
-          gap: var(--spacing-md);
-          flex: 1;
-          justify-content: flex-end;
         }
 
         .rank-badge {
@@ -248,12 +227,9 @@ export const GlobalRanking: React.FC = () => {
           text-shadow: none;
         }
 
-        .game-date {
-          font-size: var(--font-size-xs);
-          color: var(--color-text-secondary);
-          opacity: 0.7;
+        .country-flag {
+          font-size: var(--font-size-xl);
           flex-shrink: 0;
-          min-width: 80px;
         }
 
         .player-name {
@@ -263,13 +239,36 @@ export const GlobalRanking: React.FC = () => {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          min-width: 100px;
           max-width: 200px;
         }
 
-        .country-flag {
-          font-size: var(--font-size-xl);
+        .spacer {
+          flex: 1;
+        }
+
+        .score-display {
+          display: flex;
+          align-items: baseline;
+          gap: var(--spacing-xs);
           flex-shrink: 0;
+        }
+
+        .score-value {
+          font-size: var(--font-size-xl);
+          font-weight: 800;
+          font-family: var(--font-mono);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          line-height: 1;
+        }
+
+        .score-label {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          color: var(--color-text-secondary);
+          letter-spacing: 0.5px;
         }
 
         .loading-text,
@@ -314,24 +313,22 @@ export const GlobalRanking: React.FC = () => {
           .ranking-item {
             padding: var(--spacing-sm) var(--spacing-md);
             min-height: 60px;
+            gap: var(--spacing-sm);
           }
 
           .rank-badge {
-            min-width: 40px;
-            height: 40px;
-            font-size: var(--font-size-base);
+            min-width: 32px;
+            height: 32px;
+            font-size: var(--font-size-xs);
           }
 
           .player-name {
-            font-size: var(--font-size-base);
+            font-size: var(--font-size-sm);
+            max-width: 120px;
           }
 
           .score-value {
-            font-size: var(--font-size-xl);
-          }
-
-          .score-display {
-            min-width: 80px;
+            font-size: var(--font-size-lg);
           }
         }
       `}</style>

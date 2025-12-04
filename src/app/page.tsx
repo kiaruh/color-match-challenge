@@ -392,16 +392,7 @@ export default function Home() {
 
         // Check if game is complete (8 rounds)
         if (currentRound >= 8) {
-          // Save solo game to database
-          try {
-            await saveSoloGame({
-              username,
-              totalScore: newTotalScore,
-              completedRounds: 8
-            });
-          } catch (error) {
-            console.error('Failed to save solo game:', error);
-          }
+          // Transition immediately to results, saving happens in SoloResults component
           setGamePhase('solo_results');
         } else {
           setCurrentRound(currentRound + 1);
