@@ -14,9 +14,9 @@ A multiplayer color perception game built with Next.js 16 and Socket.IO. Test yo
 - **Multiplayer**: Create custom rooms with unlimited rounds. Compete against friends in real-time.
 
 ### 🏆 Rankings & Stats
-- **Global Leaderboard**: See top players from around the world.
+- **Weekly Global Leaderboard**: Compete for the top spot! Rankings reset every Monday.
 - **Country Rankings**: Automatically detects your location to show local champions.
-- **Horse Race Animation**: Visualize your performance against top players after every solo game.
+- **Live Solo Race**: Real-time horse race visualization showing your progress vs top 10 leaderboard during gameplay.
 - **Detailed Stats**: Track your accuracy, total score, and improvement over time.
 
 ### ✨ Immersive Experience
