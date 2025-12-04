@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getGlobalRankings, getCountryRankings } from '../utils/api';
+import { getGlobalRankings } from '../utils/api';
 
 interface RankingEntry {
   name: string;
@@ -10,77 +10,30 @@ interface RankingEntry {
 
 export const GlobalRanking: React.FC = () => {
   const [globalRankings, setGlobalRankings] = useState<RankingEntry[]>([]);
-  const [countryRankings, setCountryRankings] = useState<RankingEntry[]>([]);
-  const [isLoadingGlobal, setIsLoadingGlobal] = useState(true);
-  const [isLoadingCountry, setIsLoadingCountry] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [userCountry, setUserCountry] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRankings = async () => {
       const limit = isExpanded ? 300 : 10;
 
-      // 1. Fetch Global Rankings immediately
-      setIsLoadingGlobal(true);
+      setIsLoading(true);
       getGlobalRankings(limit)
         .then(data => {
           setGlobalRankings(data);
-          setIsLoadingGlobal(false);
+          setIsLoading(false);
         })
         .catch(err => {
           console.error('Failed to fetch global rankings:', err);
-          setIsLoadingGlobal(false);
+          setIsLoading(false);
         });
-
-      // 2. Fetch Country Rankings (independent)
-      // We only need to detect country once, but we need to fetch rankings on refresh
-      const detectAndFetchCountry = async () => {
-        try {
-          let countryFlag = userCountry;
-
-          if (!countryFlag) {
-            const ipResponse = await fetch('https://ipapi.co/json/');
-            const ipData = await ipResponse.json();
-            if (ipData.country_code) {
-              countryFlag = getCountryFlag(ipData.country_code);
-              setUserCountry(countryFlag);
-            }
-          }
-
-          if (countryFlag) {
-            setIsLoadingCountry(true);
-            const countryData = await getCountryRankings(countryFlag, limit);
-            setCountryRankings(countryData);
-            setIsLoadingCountry(false);
-          }
-        } catch (err) {
-          console.error('Failed to fetch country rankings:', err);
-          setIsLoadingCountry(false);
-        }
-      };
-
-      detectAndFetchCountry();
     };
 
     fetchRankings();
 
     const interval = setInterval(fetchRankings, 60000);
     return () => clearInterval(interval);
-  }, [isExpanded]); // We don't include userCountry to avoid loops, handled inside
-
-  const getCountryFlag = (countryCode: string): string => {
-    // Convert country code to flag emoji
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map(char => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-  };
-
-  const formatDate = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  }, [isExpanded]);
 
   const renderRankingList = (rankings: RankingEntry[], title: string, loading: boolean) => (
     <div className="ranking-section">
@@ -118,14 +71,7 @@ export const GlobalRanking: React.FC = () => {
 
   return (
     <div className="global-ranking glass">
-      {renderRankingList(globalRankings, '🌍 Global Rankings', isLoadingGlobal)}
-
-      {userCountry && (
-        <>
-          <div className="divider"></div>
-          {renderRankingList(countryRankings, `${userCountry} Country Rankings`, isLoadingCountry)}
-        </>
-      )}
+      {renderRankingList(globalRankings, '🌍 Global Rankings', isLoading)}
 
       <button
         className="expand-button"
