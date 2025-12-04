@@ -199,10 +199,25 @@ router.get('/rankings/country/:country', (req: Request, res: Response) => {
 // Save solo game result
 router.post('/solo-games', (req: Request, res: Response) => {
     try {
-        const { username, totalScore, completedRounds, country, ip } = req.body;
+        const { username, totalScore, completedRounds } = req.body;
 
         if (!username || totalScore === undefined || completedRounds === undefined) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Detect IP address from request
+        const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+            req.socket.remoteAddress ||
+            '';
+
+        // Detect country from IP using geoip-lite
+        let country = '';
+        if (ip) {
+            const geoip = require('geoip-lite');
+            const geo = geoip.lookup(ip);
+            if (geo && geo.country && /^[A-Z]{2}$/.test(geo.country)) {
+                country = geo.country; // 2-letter ISO code like "US", "AR", "BR"
+            }
         }
 
         const gameId = sessionManager.saveSoloGame(username, totalScore, completedRounds, country, ip);
