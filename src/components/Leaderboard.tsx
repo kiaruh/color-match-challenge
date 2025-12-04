@@ -1,104 +1,234 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-
-export interface Player {
-  place: number;
-  countryCode: string;
-  nickname: string;
-  points: number;
-}
+import React from 'react';
+import { LeaderboardEntry } from '../utils/api';
 
 interface LeaderboardProps {
-  players: Player[];
+  entries: LeaderboardEntry[];
+  currentPlayerId?: string;
+  winner?: LeaderboardEntry | null;
+  totalRounds?: number;
 }
 
-const Leaderboard: React.FC<LeaderboardProps> = ({ players }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Ensure players are sorted by points high -> low
-  // Memoize to avoid expensive re-sorting on every render if props don't change
-  const sortedPlayers = useMemo(() => {
-    return [...players].sort((a, b) => b.points - a.points).map((p, i) => ({ ...p, place: i + 1 }));
-  }, [players]);
-
-  const displayedPlayers = isExpanded ? sortedPlayers.slice(0, 300) : sortedPlayers.slice(0, 10);
-
-  const getMedalColor = (place: number) => {
-    switch (place) {
-      case 1: return 'text-yellow-400'; // Gold
-      case 2: return 'text-gray-300';   // Silver
-      case 3: return 'text-amber-600';  // Bronze
-      default: return 'text-gray-500';
-    }
-  };
-
-  const getRowStyle = (place: number) => {
-    if (place <= 3) {
-      return 'bg-white/10 font-bold border-l-4 border-yellow-400';
-    }
-    return 'bg-white/5 border-l-4 border-transparent hover:bg-white/10';
-  };
-
-  // Helper to get flag emoji from country code
-  const getFlagEmoji = (countryCode: string) => {
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map(char => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-  };
-
+export default function Leaderboard({ entries, currentPlayerId, winner, totalRounds = 3 }: LeaderboardProps) {
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 bg-gray-900 rounded-xl shadow-2xl text-white">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
-          Leaderboard
-        </h2>
-        <div className="text-sm text-gray-400">
-          {sortedPlayers.length} Players
+    <div className="leaderboard">
+      <h2 className="leaderboard-title">
+        <span className="trophy-icon">🏆</span>
+        Leaderboard
+      </h2>
+
+      {winner && (
+        <div className="winner-announcement animate-scaleIn">
+          <div className="winner-badge">👑 Winner!</div>
+          <div className="winner-name">{winner.username}</div>
+          <div className="winner-score">{winner.bestScore} points</div>
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-col gap-2">
-        {displayedPlayers.map((player) => (
+      <div className="leaderboard-list">
+        {entries.map((entry, index) => (
           <div
-            key={`${player.nickname}-${player.place}`}
-            className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${getRowStyle(player.place)}`}
+            key={entry.playerId}
+            className={`leaderboard-entry ${entry.playerId === currentPlayerId ? 'current-player' : ''
+              } ${entry.isFinished ? 'finished' : 'playing'} animate-slideInUp`}
+            style={{ animationDelay: `${index * 50}ms` }}
           >
-            {/* Left Side: Points */}
-            <div className="flex-shrink-0 w-24 text-left font-mono text-lg text-blue-300">
-              {player.points.toLocaleString()}
+            <div className="entry-rank">
+              {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
             </div>
-
-            {/* Right Side: Place, Flag, Nickname */}
-            <div className="flex items-center justify-end gap-4 flex-grow text-right">
-              <div className="flex items-center gap-2">
-                <span className={`font-mono w-8 text-center ${getMedalColor(player.place)}`}>
-                  #{player.place}
-                </span>
-                <span className="text-xl" role="img" aria-label={player.countryCode}>
-                  {getFlagEmoji(player.countryCode)}
-                </span>
-                <span className="truncate max-w-[150px] sm:max-w-[200px] text-right">
-                  {player.nickname}
-                </span>
+            <div className="entry-info">
+              <div className="entry-name">
+                {entry.username}
+                {entry.playerId === currentPlayerId && <span className="you-badge">You</span>}
+              </div>
+              <div className="entry-progress">
+                Round {entry.isFinished ? totalRounds : Math.min(entry.completedRounds + 1, totalRounds)}/{totalRounds}
+                {entry.isFinished && <span className="finished-badge">✓ Done</span>}
               </div>
             </div>
+            <div className="entry-score">{entry.bestScore}</div>
           </div>
         ))}
+
+        {entries.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">👥</div>
+            <div className="empty-text">Waiting for players...</div>
+          </div>
+        )}
       </div>
 
-      <div className="mt-6 text-center">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold transition-colors duration-200 shadow-lg hover:shadow-blue-500/30"
-        >
-          {isExpanded ? 'Show Top 10' : 'Show Top 300'}
-        </button>
-      </div>
+      <style jsx>{`
+        .leaderboard {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-lg);
+          width: 100%;
+          max-width: 400px;
+        }
+
+        .leaderboard-title {
+          font-size: var(--font-size-2xl);
+          font-weight: 700;
+          color: var(--color-text-primary);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+          margin: 0;
+        }
+
+        .trophy-icon {
+          font-size: var(--font-size-3xl);
+          animation: bounce 2s ease-in-out infinite;
+        }
+
+        .winner-announcement {
+          background: var(--gradient-primary);
+          padding: var(--spacing-lg);
+          border-radius: var(--radius-xl);
+          text-align: center;
+          box-shadow: var(--shadow-glow);
+        }
+
+        .winner-badge {
+          font-size: var(--font-size-sm);
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: white;
+          margin-bottom: var(--spacing-sm);
+        }
+
+        .winner-name {
+          font-size: var(--font-size-2xl);
+          font-weight: 800;
+          color: white;
+          margin-bottom: var(--spacing-xs);
+        }
+
+        .winner-score {
+          font-size: var(--font-size-lg);
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .leaderboard-list {
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-sm);
+        }
+
+        .leaderboard-entry {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-md);
+          padding: var(--spacing-md);
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          transition: all var(--transition-base);
+        }
+
+        .leaderboard-entry:hover {
+          background: var(--color-bg-card-hover);
+          transform: translateX(4px);
+        }
+
+        .leaderboard-entry.current-player {
+          border-color: var(--color-primary);
+          background: rgba(99, 102, 241, 0.1);
+          box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+
+        .leaderboard-entry.finished {
+          opacity: 0.9;
+        }
+
+        .entry-rank {
+          font-size: var(--font-size-xl);
+          font-weight: 700;
+          min-width: 40px;
+          text-align: center;
+        }
+
+        .entry-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-xs);
+        }
+
+        .entry-name {
+          font-size: var(--font-size-base);
+          font-weight: 600;
+          color: var(--color-text-primary);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+        }
+
+        .you-badge {
+          font-size: var(--font-size-xs);
+          font-weight: 700;
+          text-transform: uppercase;
+          color: var(--color-primary);
+          background: rgba(99, 102, 241, 0.2);
+          padding: 2px 8px;
+          border-radius: var(--radius-sm);
+        }
+
+        .entry-progress {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+        }
+
+        .finished-badge {
+          font-size: var(--font-size-xs);
+          color: var(--color-success);
+          font-weight: 600;
+        }
+
+        .entry-score {
+          font-size: var(--font-size-xl);
+          font-weight: 700;
+          color: var(--color-primary);
+          font-family: 'Courier New', monospace;
+        }
+
+        .empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: var(--spacing-3xl);
+          gap: var(--spacing-md);
+        }
+
+        .empty-icon {
+          font-size: var(--font-size-5xl);
+          opacity: 0.5;
+          animation: pulse 2s ease-in-out infinite;
+        }
+
+        .empty-text {
+          font-size: var(--font-size-base);
+          color: var(--color-text-secondary);
+        }
+
+        @media (max-width: 768px) {
+          .leaderboard {
+            max-width: 100%;
+          }
+
+          .leaderboard-title {
+            font-size: var(--font-size-xl);
+          }
+        }
+      `}</style>
     </div>
   );
-};
-
-export default Leaderboard;
+}
