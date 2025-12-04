@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { rgbToHex } from '../utils/colorUtils';
 
 interface ColorPickerProps {
   onColorSelect: (color: { r: number; g: number; b: number }) => void;
@@ -34,8 +33,6 @@ export default function ColorPicker({ onColorSelect, disabled = false }: ColorPi
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Create vertical gradient (Lightness/Saturation overlay)
-    // We'll use white at top (lightness) to black at bottom (darkness)
-    // to cover full spectrum
     const gradientV = ctx.createLinearGradient(0, 0, 0, canvas.height);
     gradientV.addColorStop(0, 'rgba(255, 255, 255, 1)');
     gradientV.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
@@ -71,89 +68,31 @@ export default function ColorPicker({ onColorSelect, disabled = false }: ColorPi
   };
 
   return (
-    <div className="color-picker-container">
-      <div className="canvas-wrapper">
+    <div className="flex flex-col items-center gap-3 w-full">
+      <div
+        className={`relative rounded-[var(--radius-md)] overflow-hidden shadow-[var(--shadow-inner)] border border-[var(--border-primary)] cursor-crosshair transition-opacity duration-200 ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-[var(--border-focus)]'}`}
+      >
         <canvas
           ref={canvasRef}
           width={400}
           height={300}
           onClick={handleClick}
-          className={`gradient-canvas ${disabled ? 'disabled' : ''}`}
+          className="block w-full max-w-[400px] h-auto touch-none"
         />
         {markerPosition && (
           <div
-            className="selection-marker"
+            className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 border-2 border-white rounded-full shadow-sm pointer-events-none animate-scaleIn"
             style={{
               left: markerPosition.x,
               top: markerPosition.y,
-              backgroundColor: `rgb(${
-                // Invert color for visibility or just use white/black border
-                'transparent'
-                })`
             }}
           />
         )}
       </div>
 
-      <p className="instruction-text">
-        {disabled ? 'Color selected!' : 'Click anywhere on the gradient to select your color'}
+      <p className="text-xs font-medium text-[var(--text-secondary)]">
+        {disabled ? 'Color selected!' : 'Click anywhere to select a color'}
       </p>
-
-      <style jsx>{`
-        .color-picker-container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: var(--spacing-md);
-          width: 100%;
-        }
-
-        .canvas-wrapper {
-          position: relative;
-          border-radius: var(--radius-lg);
-          overflow: hidden;
-          box-shadow: var(--shadow-lg);
-          border: 2px solid var(--color-border);
-          cursor: crosshair;
-        }
-
-        .gradient-canvas {
-          display: block;
-          width: 100%;
-          max-width: 400px;
-          height: auto;
-          touch-action: none;
-        }
-
-        .gradient-canvas.disabled {
-          cursor: not-allowed;
-          opacity: 0.8;
-        }
-
-        .selection-marker {
-          position: absolute;
-          width: 20px;
-          height: 20px;
-          transform: translate(-50%, -50%);
-          border: 2px solid white;
-          border-radius: 50%;
-          box-shadow: 0 0 4px rgba(0,0,0,0.5);
-          pointer-events: none;
-          animation: scaleIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .instruction-text {
-          font-size: var(--font-size-sm);
-          color: var(--color-text-secondary);
-          font-weight: 500;
-        }
-
-        @media (max-width: 640px) {
-          .gradient-canvas {
-            max-width: 100%;
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -21,15 +21,15 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
     const visible = showAll ? sorted.slice(0, 300) : sorted.slice(0, 10);
 
     return (
-        <div className="w-full max-w-xl mx-auto rounded-xl border border-neutral-200 bg-white p-4 shadow-sm font-sans">
+        <div className="w-full max-w-xl mx-auto rounded-[var(--radius-lg)] border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 shadow-sm font-sans">
             <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold text-neutral-900">Leaderboard</h2>
-                <span className="text-xs text-neutral-500">
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Leaderboard</h2>
+                <span className="text-xs text-[var(--text-secondary)]">
                     {sorted.length} {sorted.length === 1 ? 'Player' : 'Players'}
                 </span>
             </div>
 
-            <div className="divide-y divide-neutral-200">
+            <div className="divide-y divide-[var(--border-primary)]">
                 {visible.map((p, idx) => {
                     const rank = p.place ?? idx + 1;
 
@@ -46,7 +46,7 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
                                 fontSize: '0.875rem',
                                 whiteSpace: 'nowrap',
                             }}
-                            className="hover:bg-neutral-100 transition-colors duration-150"
+                            className="hover:bg-[var(--bg-secondary)] transition-colors duration-150"
                         >
                             {/* LEFT BLOCK: [Place] [Flag] [Nickname] */}
                             <div
@@ -60,7 +60,7 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
                             >
                                 <span
                                     style={{ width: '2rem', textAlign: 'right', flexShrink: 0 }}
-                                    className="font-mono text-xs text-neutral-500"
+                                    className="font-mono text-xs text-[var(--text-secondary)]"
                                 >
                                     #{rank}
                                 </span>
@@ -80,7 +80,7 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
                                     }}
-                                    className="font-medium text-neutral-900"
+                                    className="font-medium text-[var(--text-primary)]"
                                 >
                                     {p.nickname}
                                 </span>
@@ -93,7 +93,7 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
                                     flexShrink: 0,
                                     whiteSpace: 'nowrap',
                                 }}
-                                className="font-mono text-sm font-semibold tabular-nums text-neutral-900"
+                                className="font-mono text-sm font-semibold tabular-nums text-[var(--text-primary)]"
                             >
                                 {p.points.toLocaleString()}
                             </div>
@@ -106,7 +106,7 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
                 <button
                     type="button"
                     onClick={() => setShowAll((v) => !v)}
-                    className="rounded-md border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
+                    className="rounded-[var(--radius-sm)] border border-[var(--border-primary)] bg-[var(--bg-primary)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] transition-colors"
                 >
                     {showAll ? 'Show Top 10' : 'Show Top 300'}
                 </button>

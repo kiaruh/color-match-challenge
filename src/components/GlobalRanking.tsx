@@ -66,14 +66,14 @@ export const GlobalRanking: React.FC = () => {
 
   if (isLoading && players.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400">
+      <div className="p-8 text-center text-[var(--text-secondary)]">
         Loading global rankings...
       </div>
     );
   }
 
   return (
-    <div className="mt-8">
+    <div>
       <GlobalLeaderboard players={players} />
     </div>
   );
