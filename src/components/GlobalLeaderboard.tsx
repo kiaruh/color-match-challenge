@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 
 export interface Player {
     place: number;
-    countryCode: string;
+    countryFlag: string;
     nickname: string;
     points: number;
 }
@@ -17,7 +17,6 @@ const GlobalLeaderboard: React.FC<GlobalLeaderboardProps> = ({ players }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Ensure players are sorted by points high -> low
-    // Memoize to avoid expensive re-sorting on every render if props don't change
     const sortedPlayers = useMemo(() => {
         return [...players].sort((a, b) => b.points - a.points).map((p, i) => ({ ...p, place: i + 1 }));
     }, [players]);
@@ -40,16 +39,6 @@ const GlobalLeaderboard: React.FC<GlobalLeaderboardProps> = ({ players }) => {
         return 'bg-white/5 border-l-4 border-transparent hover:bg-white/10';
     };
 
-    // Helper to get flag emoji from country code
-    const getFlagEmoji = (countryCode: string) => {
-        if (!countryCode) return '🏳️';
-        const codePoints = countryCode
-            .toUpperCase()
-            .split('')
-            .map(char => 127397 + char.charCodeAt(0));
-        return String.fromCodePoint(...codePoints);
-    };
-
     return (
         <div className="w-full max-w-2xl mx-auto p-4 bg-gray-900 rounded-xl shadow-2xl text-white">
             <div className="flex justify-between items-center mb-6">
@@ -67,24 +56,22 @@ const GlobalLeaderboard: React.FC<GlobalLeaderboardProps> = ({ players }) => {
                         key={`${player.nickname}-${player.place}`}
                         className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${getRowStyle(player.place)}`}
                     >
-                        {/* Left Side: Points */}
-                        <div className="flex-shrink-0 w-24 text-left font-mono text-lg text-blue-300">
-                            {player.points.toLocaleString()}
+                        {/* Left Group: [Place] [CountryFlag] [Nickname] */}
+                        <div className="flex items-center gap-3 flex-grow min-w-0 overflow-hidden">
+                            <span className={`font-mono w-8 text-center flex-shrink-0 ${getMedalColor(player.place)}`}>
+                                #{player.place}
+                            </span>
+                            <span className="text-xl flex-shrink-0" role="img" aria-label="flag">
+                                {player.countryFlag}
+                            </span>
+                            <span className="truncate whitespace-nowrap overflow-hidden text-ellipsis">
+                                {player.nickname}
+                            </span>
                         </div>
 
-                        {/* Right Side: Place, Flag, Nickname */}
-                        <div className="flex items-center justify-end gap-4 flex-grow text-right">
-                            <div className="flex items-center gap-2">
-                                <span className={`font-mono w-8 text-center ${getMedalColor(player.place)}`}>
-                                    #{player.place}
-                                </span>
-                                <span className="text-xl" role="img" aria-label={player.countryCode}>
-                                    {getFlagEmoji(player.countryCode)}
-                                </span>
-                                <span className="truncate max-w-[150px] sm:max-w-[200px] text-right">
-                                    {player.nickname}
-                                </span>
-                            </div>
+                        {/* Right Side: [Points] */}
+                        <div className="flex-shrink-0 w-24 text-right font-mono text-lg text-blue-300 whitespace-nowrap ml-4">
+                            {player.points.toLocaleString()}
                         </div>
                     </div>
                 ))}
