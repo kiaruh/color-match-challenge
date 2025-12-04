@@ -25,11 +25,19 @@ export const GlobalRanking: React.FC = () => {
           const mappedPlayers: Player[] = data.map((entry: RankingEntry, index: number) => {
             // Helper to get flag emoji from country code
             const countryCode = entry.country || 'US';
-            const codePoints = countryCode
-              .toUpperCase()
-              .split('')
-              .map(char => 127397 + char.charCodeAt(0));
-            const countryFlag = String.fromCodePoint(...codePoints);
+            let countryFlag = '🌍';
+
+            // Check if it's a 2-letter ISO code (A-Z)
+            if (countryCode && /^[A-Za-z]{2}$/.test(countryCode)) {
+              const codePoints = countryCode
+                .toUpperCase()
+                .split('')
+                .map(char => 127397 + char.charCodeAt(0));
+              countryFlag = String.fromCodePoint(...codePoints);
+            } else if (countryCode) {
+              // Use as is (e.g. if it's already an emoji like 🌍)
+              countryFlag = countryCode;
+            }
 
             return {
               place: index + 1,
