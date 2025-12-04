@@ -12,8 +12,9 @@ if (!fs.existsSync(dbDir)) {
 
 export const db: Database.Database = new Database(dbPath);
 
-// Enable foreign keys
+// Enable foreign keys and set encoding
 db.pragma('foreign_keys = ON');
+db.pragma('encoding = "UTF-8"');
 
 // Initialize database schema
 export function initializeDatabase() {
