@@ -1,91 +1,74 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 
-export interface Player {
-    place: number;
-    countryFlag: string;
-    nickname: string;
-    points: number;
-}
+export type Player = {
+    place: number;          // e.g. 1
+    countryFlag: string;    // e.g. "🇺🇸"
+    nickname: string;       // e.g. "UltraHero"
+    points: number;         // e.g. 4209
+};
 
-interface LeaderboardProps {
+type GlobalLeaderboardProps = {
     players: Player[];
-}
+};
 
-const GlobalLeaderboard: React.FC<LeaderboardProps> = ({ players }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-
+export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
     // Ensure players are sorted by points high -> low
-    const sortedPlayers = useMemo(() => {
-        return [...players].sort((a, b) => b.points - a.points).map((p, i) => ({ ...p, place: i + 1 }));
-    }, [players]);
+    const sorted = [...players].sort((a, b) => b.points - a.points);
 
-    const displayedPlayers = isExpanded ? sortedPlayers.slice(0, 300) : sortedPlayers.slice(0, 10);
-
-    const getRowStyle = (place: number) => {
-        const baseStyle = "flex items-center justify-between py-2 px-3 border-b border-gray-100 last:border-0 transition-colors duration-150 hover:bg-gray-50";
-        if (place <= 3) {
-            return `${baseStyle} font-medium bg-orange-50/30`;
-        }
-        return `${baseStyle} text-gray-600`;
-    };
-
-    const getPlaceStyle = (place: number) => {
-        if (place <= 3) return "text-gray-900 font-semibold";
-        return "text-gray-400 font-normal";
-    };
+    const [showAll, setShowAll] = useState(false);
+    const visible = showAll ? sorted.slice(0, 300) : sorted.slice(0, 10);
 
     return (
-        <div className="w-full max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden font-sans">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white">
-                <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
-                    Leaderboard
-                </h2>
-                <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    {sortedPlayers.length} Players
-                </div>
+        <div className="w-full max-w-xl rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 shadow-sm mx-auto font-sans">
+            <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="text-lg font-semibold text-neutral-900">Leaderboard</h2>
+                <span className="text-xs text-neutral-500">
+                    {sorted.length} {sorted.length === 1 ? "Player" : "Players"}
+                </span>
             </div>
 
-            <div className="flex flex-col">
-                {displayedPlayers.map((player) => (
+            <div className="divide-y divide-neutral-200">
+                {visible.map((p) => (
                     <div
-                        key={`${player.nickname}-${player.place}`}
-                        className={getRowStyle(player.place)}
+                        key={`${p.nickname}-${p.place}`}
+                        className={`
+              flex items-center justify-between gap-3 px-2 py-2 text-sm
+              hover:bg-neutral-100/80 transition-colors duration-150
+            `}
                     >
-                        {/* Left Block: [Place] [CountryFlag] [Nickname] */}
-                        <div className="flex items-center gap-x-3 min-w-0 overflow-hidden flex-grow">
-                            <span className={`w-6 text-center text-sm whitespace-nowrap flex-shrink-0 ${getPlaceStyle(player.place)}`}>
-                                {player.place}
+                        {/* LEFT BLOCK: [Place] [Flag] [Nickname] */}
+                        <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+                            <span className="w-8 text-right font-mono text-xs text-neutral-500 shrink-0">
+                                #{p.place}
                             </span>
-                            <span className="text-lg leading-none flex items-center justify-center whitespace-nowrap flex-shrink-0 select-none" role="img" aria-label="flag">
-                                {player.countryFlag}
+                            {/* emoji in a tight inline box so it doesn't grow vertically */}
+                            <span className="text-base leading-none shrink-0 select-none" role="img" aria-label="flag">
+                                {p.countryFlag}
                             </span>
-                            <span className="truncate text-sm text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis">
-                                {player.nickname}
+                            <span className="truncate text-neutral-900 font-medium">
+                                {p.nickname}
                             </span>
                         </div>
 
-                        {/* Right Side: [Points] */}
-                        <div className="flex-shrink-0 ml-4 text-right">
-                            <span className="text-sm font-mono font-medium text-gray-600 whitespace-nowrap">
-                                {player.points.toLocaleString()}
-                            </span>
+                        {/* RIGHT SIDE: [points] */}
+                        <div className="ml-4 shrink-0 font-mono text-sm tabular-nums text-neutral-900 font-semibold">
+                            {p.points.toLocaleString()}
                         </div>
                     </div>
                 ))}
             </div>
 
-            <div className="p-3 text-center border-t border-gray-100 bg-gray-50/50">
+            <div className="mt-3 flex justify-end">
                 <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="px-4 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 bg-white border border-gray-200 hover:border-gray-300 rounded-md shadow-sm transition-all duration-200"
+                    type="button"
+                    onClick={() => setShowAll((v) => !v)}
+                    className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100 transition-colors"
                 >
-                    {isExpanded ? 'Show Top 10' : 'Show Top 300'}
+                    {showAll ? "Show Top 10" : "Show Top 300"}
                 </button>
             </div>
         </div>
     );
-};
-
-export default GlobalLeaderboard;
+}
