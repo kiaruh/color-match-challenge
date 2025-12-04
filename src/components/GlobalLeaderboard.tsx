@@ -29,40 +29,72 @@ export default function GlobalLeaderboard({ players }: GlobalLeaderboardProps) {
                 </span>
             </div>
 
-            <div className="rounded-lg border border-neutral-200 bg-neutral-50/60">
+            <div className="divide-y divide-neutral-200">
                 {visible.map((p, idx) => {
-                    // Use the precomputed place; if needed, you can recompute from sorted
                     const rank = p.place ?? idx + 1;
 
                     return (
                         <div
                             key={`${p.nickname}-${p.points}-${rank}`}
-                            className={`
-                flex flex-nowrap items-center justify-between gap-3 px-3 py-2 text-sm
-                hover:bg-neutral-100 transition-colors duration-150
-              `}
+                            // layout-critical styles here
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '0.75rem',
+                                padding: '0.5rem 0.75rem',
+                                fontSize: '0.875rem',
+                                whiteSpace: 'nowrap',
+                            }}
+                            className="hover:bg-neutral-100 transition-colors duration-150"
                         >
                             {/* LEFT BLOCK: [Place] [Flag] [Nickname] */}
-                            <div className="flex min-w-0 flex-nowrap items-center gap-2 whitespace-nowrap">
-                                <span className="w-8 shrink-0 text-right font-mono text-xs text-neutral-500">
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    minWidth: 0,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                <span
+                                    style={{ width: '2rem', textAlign: 'right', flexShrink: 0 }}
+                                    className="font-mono text-xs text-neutral-500"
+                                >
                                     #{rank}
                                 </span>
 
                                 <span
-                                    className="shrink-0 select-none text-base leading-none"
+                                    style={{ flexShrink: 0, fontSize: '1rem', lineHeight: 1 }}
+                                    className="select-none"
                                     role="img"
                                     aria-label="flag"
                                 >
                                     {p.countryFlag}
                                 </span>
 
-                                <span className="min-w-0 truncate font-medium text-neutral-900">
+                                <span
+                                    style={{
+                                        minWidth: 0,
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                    }}
+                                    className="font-medium text-neutral-900"
+                                >
                                     {p.nickname}
                                 </span>
                             </div>
 
                             {/* RIGHT SIDE: [points] */}
-                            <div className="ml-4 shrink-0 whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-neutral-900">
+                            <div
+                                style={{
+                                    marginLeft: '1rem',
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap',
+                                }}
+                                className="font-mono text-sm font-semibold tabular-nums text-neutral-900"
+                            >
                                 {p.points.toLocaleString()}
                             </div>
                         </div>
