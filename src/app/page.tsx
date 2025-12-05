@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import GameBoard from '../components/GameBoard';
-import Leaderboard from '../components/Leaderboard';
 import { useWebSocket } from '../hooks/useWebSocket';
 import {
   createSession,
@@ -22,7 +21,6 @@ import { SoloResults } from '../components/SoloResults';
 import { TurnTimer } from '../components/TurnTimer';
 import { HorseRaceLeaderboard } from '../components/HorseRaceLeaderboard';
 import { GlobalRanking } from '../components/GlobalRanking';
-import { LiveSoloRace } from '../components/LiveSoloRace';
 
 type GamePhase = 'landing' | 'playing' | 'waiting' | 'solo_results';
 
@@ -501,215 +499,220 @@ export default function Home() {
       <main className="app-main">
         {/* Landing Phase */}
         {gamePhase === 'landing' && (
-          <div className="min-h-screen bg-[var(--bg-secondary)] p-4 md:p-8">
-            <div className="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+          <div className="landing-container animate-scaleIn">
+            <div className="landing-card glass">
+              <h2 className="landing-title">Ready to Play?</h2>
+              <p className="landing-description">
+                Match colors as closely as possible across 3 rounds. Compete with others in real-time!
+              </p>
 
-              {/* LEFT COLUMN: Hero & Actions */}
-              <div className="lg:col-span-5 lg:sticky lg:top-8 space-y-8">
-                {/* Brand / Hero */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded bg-[var(--text-primary)] flex items-center justify-center text-[var(--bg-primary)] font-bold text-xl">
-                      C
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-                      Color Match
-                    </h1>
-                  </div>
-                  <p className="text-lg text-[var(--text-secondary)] leading-relaxed">
-                    Test your color perception. Match the target color as closely as possible. Compete in real-time or practice solo.
-                  </p>
+              <div className="username-section">
+                <div className="input-group">
+                  <input
+                    type="text"
+                    placeholder="Enter Username (optional)"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="text-input"
+                  />
+                  <button
+                    className="icon-button"
+                    onClick={generateUsername}
+                    title="Generate Random Name"
+                  >
+                    🎲
+                  </button>
                 </div>
+              </div>
 
-                {/* Main Action Card */}
-                <div className="surface-card p-6 space-y-6">
-                  {/* Username Section */}
-                  <div className="space-y-2">
-                    <label className="text-caption font-medium uppercase tracking-wider">Your Name</label>
-                    <div className="flex gap-2">
+              <div className="action-buttons">
+                <div className="create-section">
+                  <div className="game-settings">
+                    <div className="setting-group">
+                      <label>Max Players (2-20)</label>
                       <input
-                        type="text"
-                        placeholder="Enter Username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                        type="number"
+                        min="2"
+                        max="20"
+                        value={maxPlayers}
+                        onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 2)}
+                        onFocus={(e) => e.target.select()}
+                        className="number-input"
                       />
-                      <button
-                        onClick={generateUsername}
-                        className="px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] hover:bg-[var(--bg-tertiary)] transition-colors text-[var(--text-secondary)]"
-                        title="Generate Random Name"
-                      >
-                        🎲
-                      </button>
+                    </div>
+                    <div className="setting-group">
+                      <label>Total Rounds</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={totalRounds}
+                        onChange={(e) => setTotalRounds(parseInt(e.target.value) || 3)}
+                        onFocus={(e) => e.target.select()}
+                        className="number-input"
+                      />
                     </div>
                   </div>
-
-                  <hr className="border-[var(--border-primary)]" />
-
-                  {/* Create Game Section */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-body font-semibold">Create New Game</h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-caption">Max Players</label>
-                        <input
-                          type="number"
-                          min="2"
-                          max="20"
-                          value={maxPlayers}
-                          onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 2)}
-                          className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-caption">Rounds</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={totalRounds}
-                          onChange={(e) => setTotalRounds(parseInt(e.target.value) || 3)}
-                          className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
+                  <div className="password-toggle">
+                    <label>
                       <input
                         type="checkbox"
-                        id="password-protect"
                         checked={!!sessionPassword}
                         onChange={(e) => setSessionPassword(e.target.checked ? '1234' : '')}
-                        className="rounded border-[var(--border-primary)] text-[var(--accent-primary)] focus:ring-0"
                       />
-                      <label htmlFor="password-protect" className="text-sm text-[var(--text-secondary)] select-none cursor-pointer">
-                        Password protect
-                      </label>
-                    </div>
-
+                      Protect with password
+                    </label>
                     {sessionPassword && (
                       <input
                         type="text"
                         placeholder="Set Password"
                         value={sessionPassword}
                         onChange={(e) => setSessionPassword(e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
+                        className="password-input"
                       />
                     )}
-
-                    <button
-                      onClick={handleCreateSession}
-                      disabled={isLoading}
-                      className="w-full py-2.5 bg-[var(--text-primary)] text-[var(--bg-primary)] font-medium rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity disabled:opacity-50"
-                    >
-                      {isLoading ? 'Creating...' : 'Create Session'}
-                    </button>
                   </div>
+                  <button
+                    className="primary-button"
+                    onClick={handleCreateSession}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Creating...' : 'Create New Game'}
+                  </button>
+                </div>
 
-                  <hr className="border-[var(--border-primary)]" />
+                <div className="divider">
+                  <span>or</span>
+                </div>
 
-                  {/* Join Game Section */}
-                  <div className="space-y-3">
-                    <h3 className="text-body font-semibold">Join Existing</h3>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Session ID"
-                        value={joinSessionId}
-                        onChange={(e) => setJoinSessionId(e.target.value)}
-                        className="flex-1 px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
-                      />
-                      <button
-                        onClick={handleJoinSession}
-                        disabled={isLoading || !joinSessionId}
-                        className="px-4 py-2 bg-[var(--bg-tertiary)] text-[var(--text-primary)] font-medium rounded-[var(--radius-sm)] hover:bg-[var(--border-secondary)] transition-colors disabled:opacity-50"
-                      >
-                        Join
-                      </button>
-                    </div>
+                <div className="join-form">
+                  <div className="join-inputs">
+                    <input
+                      type="text"
+                      placeholder="Enter Session ID"
+                      value={joinSessionId}
+                      onChange={(e) => setJoinSessionId(e.target.value)}
+                      className="session-input"
+                    />
                     {showPasswordInput && (
                       <input
                         type="password"
                         placeholder="Session Password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-[var(--radius-sm)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-focus)]"
+                        className="password-input"
                       />
                     )}
+                  </div>
+                  <div className="join-actions">
                     <button
+                      className="icon-button"
                       onClick={() => setShowPasswordInput(!showPasswordInput)}
-                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] underline decoration-dotted"
+                      title={showPasswordInput ? "Hide Password" : "Add Password"}
                     >
-                      {showPasswordInput ? "Hide Password" : "Have a password?"}
+                      🔒
                     </button>
-                  </div>
-
-                  <hr className="border-[var(--border-primary)]" />
-
-                  {/* Solo Mode */}
-                  <div>
                     <button
-                      onClick={handlePlaySolo}
-                      disabled={isLoading}
-                      className="w-full py-2.5 border border-[var(--border-primary)] text-[var(--text-primary)] font-medium rounded-[var(--radius-sm)] hover:bg-[var(--bg-secondary)] transition-colors flex items-center justify-center gap-2"
+                      className="secondary-button"
+                      onClick={handleJoinSession}
+                      disabled={isLoading || !joinSessionId}
                     >
-                      <span>👤</span> Play Solo Mode
+                      Join Game
                     </button>
                   </div>
-
-                  {error && (
-                    <div className="p-3 bg-[var(--accent-error-bg)] text-[var(--accent-error)] text-sm rounded-[var(--radius-sm)]">
-                      {error}
-                    </div>
-                  )}
                 </div>
+
+                <div className="divider">
+                  <span>or</span>
+                </div>
+
+                <button
+                  className="solo-button"
+                  onClick={handlePlaySolo}
+                  disabled={isLoading}
+                >
+                  Play Solo Mode
+                </button>
               </div>
 
-              {/* RIGHT COLUMN: Live Content */}
-              <div className="lg:col-span-7 space-y-8">
-                <LiveGamesList
-                  sessions={activeSessions}
-                  onJoin={async (sessionId, password) => {
-                    try {
-                      setIsLoading(true);
-                      setError(null);
-                      const existingSession = await getSession(sessionId);
-                      setSession(existingSession);
-                      const finalUsername = username || generateRandomUsername();
-                      setUsername(finalUsername);
-                      const joinResponse = await joinSession(sessionId, finalUsername, password);
-                      setPlayerId(joinResponse.playerId);
-                      setCurrentRound(joinResponse.currentRound);
-                      wsJoinSession(sessionId, joinResponse.playerId);
-                      setTargetColor(existingSession.startColor);
-                      setGamePhase('playing');
-                      setChatMessages([]);
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Failed to join session');
-                    } finally {
-                      setIsLoading(false);
-                    }
-                  }}
-                  onRefresh={() => {
-                    setIsLoadingSessions(true);
-                    getActiveSessions()
-                      .then((s) => {
-                        setActiveSessions(s);
-                        setSessionsError(null);
-                      })
-                      .catch((e) => setSessionsError(e instanceof Error ? e.message : 'Failed to refresh'))
-                      .finally(() => setIsLoadingSessions(false));
-                  }}
-                  isLoading={isLoadingSessions}
-                  error={sessionsError}
-                />
-
-                <GlobalRanking />
-              </div>
-
+              {error && (
+                <div className="error-message">
+                  ⚠️ {error}
+                </div>
+              )}
             </div>
+
+            <LiveGamesList
+              sessions={activeSessions}
+              onJoin={async (sessionId, password) => {
+                try {
+                  setIsLoading(true);
+                  setError(null);
+
+                  // Get session details
+                  const existingSession = await getSession(sessionId);
+                  setSession(existingSession);
+
+                  // Use provided username or generate random one
+                  const finalUsername = username || generateRandomUsername();
+                  setUsername(finalUsername);
+
+                  // Join the session
+                  const joinResponse = await joinSession(sessionId, finalUsername, password);
+                  setPlayerId(joinResponse.playerId);
+                  setCurrentRound(joinResponse.currentRound);
+
+                  // Join WebSocket room
+                  wsJoinSession(sessionId, joinResponse.playerId);
+
+                  // Set target color
+                  setTargetColor(existingSession.startColor);
+                  setGamePhase('playing');
+                  setChatMessages([]);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Failed to join session');
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              onRefresh={() => {
+                setIsLoadingSessions(true);
+                getActiveSessions()
+                  .then((s) => {
+                    setActiveSessions(s);
+                    setSessionsError(null);
+                  })
+                  .catch((e) => setSessionsError(e instanceof Error ? e.message : 'Failed to refresh'))
+                  .finally(() => setIsLoadingSessions(false));
+              }}
+              isLoading={isLoadingSessions}
+              error={sessionsError}
+            />
+
+            <div className="features-grid">
+              <div className="feature-card glass-hover">
+                <div className="feature-icon">🎨</div>
+                <h3 className="feature-title">Color Perception</h3>
+                <p className="feature-description">
+                  Test your ability to match colors using RGB sliders
+                </p>
+              </div>
+              <div className="feature-card glass-hover">
+                <div className="feature-icon">⚡</div>
+                <h3 className="feature-title">Turn-Based Multiplayer</h3>
+                <p className="feature-description">
+                  Take turns competing with others in a horse race to the finish!
+                </p>
+              </div>
+              <div className="feature-card glass-hover">
+                <div className="feature-icon">🏆</div>
+                <h3 className="feature-title">Score & Win</h3>
+                <p className="feature-description">
+                  Earn points based on color accuracy and climb the ranks
+                </p>
+              </div>
+            </div>
+
+            <GlobalRanking />
           </div>
         )}
 
@@ -800,18 +803,12 @@ export default function Home() {
                   currentTurnPlayerId={currentTurnPlayerId}
                 />
               ) : (
-                <>
-                  <Leaderboard
-                    entries={leaderboard}
-                    currentPlayerId={playerId}
-                    winner={winner}
-                    totalRounds={8}
-                  />
-                  <LiveSoloRace
-                    currentScore={singlePlayerScore}
-                    playerName={username}
-                  />
-                </>
+                <HorseRaceLeaderboard
+                  leaderboard={leaderboard}
+                  isSoloMode={true}
+                  currentScore={singlePlayerScore}
+                  playerName={username}
+                />
               )}
 
               <GameControls

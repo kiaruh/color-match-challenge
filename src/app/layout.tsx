@@ -1,9 +1,31 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+
 export const metadata: Metadata = {
-  title: "Color Match Challenge",
-  description: "Test your color perception skills in this multiplayer color matching game",
+  title: "Color Match Challenge - Multiplayer RGB Game",
+  description:
+    "Test your color perception in this real-time multiplayer game. Match colors using RGB sliders and climb the global leaderboards.",
+  icons: {
+    icon: [
+      {
+        url: "/icon-light-32x32.png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/icon-dark-32x32.png",
+        media: "(prefers-color-scheme: dark)",
+      },
+      {
+        url: "/icon.svg",
+        type: "image/svg+xml",
+      },
+    ],
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -12,12 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-      </head>
-
-      <body suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>

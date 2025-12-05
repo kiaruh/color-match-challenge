@@ -135,26 +135,25 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
           display: flex;
           flex-direction: column;
           height: 400px;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-xl);
           overflow: hidden;
-          background: var(--bg-primary);
-          border: 1px solid var(--border-primary);
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
         }
 
         .chat-header {
           padding: var(--spacing-md);
-          border-bottom: 1px solid var(--border-primary);
+          border-bottom: 1px solid var(--color-border);
           display: flex;
           justify-content: space-between;
           align-items: center;
-          background: var(--bg-secondary);
+          background: rgba(255, 255, 255, 0.05);
         }
 
         .chat-header h3 {
           margin: 0;
-          font-size: 0.875rem;
+          font-size: var(--font-size-base);
           font-weight: 600;
-          color: var(--text-primary);
         }
 
         .header-controls {
@@ -166,19 +165,19 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
         .mute-btn {
           background: none;
           border: none;
-          font-size: 1.125rem;
+          font-size: var(--font-size-lg);
           cursor: pointer;
           padding: var(--spacing-xs);
-          transition: transform var(--transition-fast);
+          transition: transform 0.2s;
         }
 
         .mute-btn:hover {
-          transform: scale(1.05);
+          transform: scale(1.1);
         }
 
         .online-indicator {
-          font-size: 0.75rem;
-          color: var(--accent-success);
+          font-size: var(--font-size-xs);
+          color: var(--color-success);
           animation: pulse 2s infinite;
         }
 
@@ -193,9 +192,9 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
 
         .empty-chat {
           text-align: center;
-          color: var(--text-secondary);
+          color: var(--color-text-secondary);
           margin-top: var(--spacing-xl);
-          font-size: 0.875rem;
+          font-size: var(--font-size-sm);
         }
 
         .message-row {
@@ -215,39 +214,38 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
         }
 
         .message-sender {
-          font-size: 0.75rem;
-          color: var(--text-secondary);
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
           margin-bottom: 2px;
           margin-left: var(--spacing-xs);
         }
 
         .message-bubble {
           padding: var(--spacing-sm) var(--spacing-md);
-          border-radius: var(--radius-md);
-          font-size: 0.875rem;
+          border-radius: var(--radius-lg);
+          font-size: var(--font-size-sm);
           line-height: 1.4;
           word-break: break-word;
         }
 
         .message-row.me .message-bubble {
-          background: var(--accent-primary);
+          background: var(--color-primary);
           color: white;
           border-bottom-right-radius: 2px;
         }
 
         .message-row.other .message-bubble {
-          background: var(--bg-secondary);
-          color: var(--text-primary);
-          border: 1px solid var(--border-primary);
+          background: var(--color-bg-darker);
+          color: var(--color-text-primary);
           border-bottom-left-radius: 2px;
         }
 
         .chat-input-area {
           padding: var(--spacing-md);
-          border-top: 1px solid var(--border-primary);
+          border-top: 1px solid var(--color-border);
           display: flex;
           gap: var(--spacing-sm);
-          background: var(--bg-secondary);
+          background: rgba(255, 255, 255, 0.05);
         }
 
         .input-wrapper {
@@ -255,23 +253,23 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
           position: relative;
           display: flex;
           align-items: center;
-          background: var(--bg-primary);
+          background: var(--color-bg-darker);
           border-radius: var(--radius-full);
           padding: 2px;
-          border: 1px solid var(--border-primary);
+          border: 1px solid var(--color-border);
         }
 
         .emoji-btn {
           padding: var(--spacing-xs) var(--spacing-sm);
           background: none;
           border: none;
-          font-size: 1.125rem;
+          font-size: var(--font-size-lg);
           cursor: pointer;
-          transition: transform var(--transition-fast);
+          transition: transform 0.2s;
         }
 
         .emoji-btn:hover {
-          transform: scale(1.05);
+          transform: scale(1.1);
         }
 
         .emoji-picker {
@@ -279,14 +277,14 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
           bottom: 100%;
           left: 0;
           margin-bottom: var(--spacing-sm);
-          background: var(--bg-primary);
-          border: 1px solid var(--border-primary);
-          border-radius: var(--radius-md);
+          background: var(--color-bg-card);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
           padding: var(--spacing-sm);
           display: grid;
           grid-template-columns: repeat(5, 1fr);
           gap: var(--spacing-xs);
-          box-shadow: var(--shadow-md);
+          box-shadow: var(--shadow-lg);
           z-index: 10;
           width: 200px;
         }
@@ -294,14 +292,14 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
         .emoji-option {
           background: none;
           border: none;
-          font-size: 1.125rem;
+          font-size: var(--font-size-lg);
           cursor: pointer;
           padding: var(--spacing-xs);
           border-radius: var(--radius-sm);
         }
 
         .emoji-option:hover {
-          background: var(--bg-secondary);
+          background: var(--color-bg-darker);
         }
 
         .chat-input {
@@ -309,8 +307,8 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
           background: none;
           border: none;
           padding: var(--spacing-sm);
-          color: var(--text-primary);
-          font-size: 0.875rem;
+          color: var(--color-text-primary);
+          font-size: var(--font-size-sm);
         }
 
         .chat-input:focus {
@@ -319,18 +317,19 @@ export default function Chat({ sessionId, playerId, username, messages, onSendMe
 
         .send-btn {
           padding: var(--spacing-sm) var(--spacing-md);
-          background: var(--text-primary);
-          color: var(--bg-primary);
+          background: var(--color-primary);
+          color: white;
           border: none;
           border-radius: var(--radius-full);
           font-weight: 600;
-          font-size: 0.875rem;
+          font-size: var(--font-size-sm);
           cursor: pointer;
-          transition: opacity var(--transition-fast);
+          transition: all var(--transition-base);
         }
 
         .send-btn:hover:not(:disabled) {
-          opacity: 0.9;
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-md);
         }
 
         .send-btn:disabled {
