@@ -1,161 +1,218 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import GameBoard from '../components/GameBoard';
+import { useEffect, useState } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
-import {
-  createSession,
-  joinSession,
-  getSession,
-  LeaderboardEntry,
-  Session,
-} from '../utils/api';
-import { rgbToHex, generateDistinctColor } from '../utils/colorUtils';
-import { generateRandomUsername } from '../utils/usernameGenerator';
+import { useGameState } from '../hooks/useGameState';
+import { useSessionManager } from '../hooks/useSessionManager';
+import { useSoloMode } from '../hooks/useSoloMode';
+import { useMultiplayerMode } from '../hooks/useMultiplayerMode';
+import { useLiveGames } from '../hooks/useLiveGames';
+import { useChat } from '../hooks/useChat';
+
+import { LandingPage } from '../components/landing/LandingPage';
+import GameBoard from '../components/GameBoard';
 import SessionIdDisplay from '../components/SessionIdDisplay';
 import Chat from '../components/Chat';
-import GameControls from '../components/GameControls';
-import { ChatMessage, ActiveSession, getActiveSessions, getLeaderboard, getChatHistory, saveSoloGame } from '../utils/api';
-import LiveGamesList from '../components/LiveGamesList';
 import { SoloResults } from '../components/SoloResults';
 import { TurnTimer } from '../components/TurnTimer';
 import { HorseRaceLeaderboard } from '../components/HorseRaceLeaderboard';
-import { GlobalRanking } from '../components/GlobalRanking';
+import GameControls from '../components/GameControls'; // Keep this for now, as it's not explicitly removed
+import { GlobalRanking } from '../components/GlobalRanking'; // Keep this for now, as it's not explicitly removed
 
-type GamePhase = 'landing' | 'playing' | 'waiting' | 'solo_results';
+import { getLeaderboard, getSession } from '../utils/api';
 
 export default function Home() {
-  const [gamePhase, setGamePhase] = useState<GamePhase>('landing');
-  const [session, setSession] = useState<Session | null>(null);
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  const [username, setUsername] = useState<string>('');
-  const [currentRound, setCurrentRound] = useState(1);
-  const [targetColor, setTargetColor] = useState('#000000');
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [winner, setWinner] = useState<LeaderboardEntry | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [joinSessionId, setJoinSessionId] = useState('');
-  const [isSinglePlayer, setIsSinglePlayer] = useState(false);
-  const [singlePlayerScore, setSinglePlayerScore] = useState(0);
-
-  // New state for features
-  const [password, setPassword] = useState('');
-  const [showPasswordInput, setShowPasswordInput] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [sessionPassword, setSessionPassword] = useState('');
+  // --- HUD & Overlay State ---
   const [showNewMatchModal, setShowNewMatchModal] = useState(false);
-
-  // Turn-based state
   const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState<string | null>(null);
   const [turnEndTime, setTurnEndTime] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [totalRounds, setTotalRounds] = useState(3);
+  const [error, setError] = useState<string | null>(null);
 
-  // Live games state
-  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
-  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  // --- Core Hooks ---
+  const gameState = useGameState();
+  const sessionManager = useSessionManager();
+  const chat = useChat();
 
-  const {
-    isConnected,
-    joinSession: wsJoinSession,
-    submitRound: wsSubmitRound,
-    onLeaderboardUpdate,
-    onPlayerJoined,
-    onSessionComplete,
-    onNextRound,
-    onChatMessage,
-    onPlayerQuit,
-    onSessionsUpdate,
-    onError,
-    sendChatMessage,
-    quitSession,
-    requestNewMatch,
-    voteNewMatch,
-    onNewMatchRequested,
-    onNewMatchStarted,
-    onTurnStarted,
-    onStartCountdown,
-    reportTurnTimeout
-  } = useWebSocket();
+  // Poll live games only when in landing phase
+  const liveGames = useLiveGames(gameState.gamePhase === 'landing');
 
-  // Set up WebSocket event listeners
+  // --- WebSocket Hook ---
+  const ws = useWebSocket();
+
+  // --- Game Mode Hooks ---
+  const soloMode = useSoloMode({
+    currentRound: gameState.currentRound,
+    targetColor: gameState.targetColor,
+    singlePlayerScore: gameState.singlePlayerScore,
+    setSinglePlayerScore: gameState.setSinglePlayerScore,
+    setLeaderboard: gameState.setLeaderboard,
+    setWinner: gameState.setWinner,
+    setCurrentRound: gameState.setCurrentRound,
+    setTargetColor: gameState.setTargetColor,
+    setGamePhase: gameState.setGamePhase,
+    username: sessionManager.username
+  });
+
+  const multiplayerMode = useMultiplayerMode({
+    session: sessionManager.session,
+    playerId: sessionManager.playerId,
+    currentRound: gameState.currentRound,
+    targetColor: gameState.targetColor,
+    wsSubmitRound: ws.submitRound,
+    setCurrentRound: gameState.setCurrentRound,
+    setTargetColor: gameState.setTargetColor,
+    setGamePhase: gameState.setGamePhase,
+  });
+
+  // --- Event Handlers ---
+
+  const handleCreateGame = async () => {
+    try {
+      const { session, playerId } = await sessionManager.createGame(maxPlayers, gameState.totalRounds);
+      ws.joinSession(session.id, playerId);
+      gameState.startMultiplayerGame(session.startColor, session.totalRounds || 3);
+      chat.clearMessages();
+    } catch (err) {
+      // Error handled in hook, but maybe we want global error too?
+    }
+  };
+
+  const handleJoinGame = async () => {
+    // This function is for the LandingPage "Join Game" button
+    // The ID comes from LandingPage state which is not hoisted directly to a single var here
+    // But LandingPage takes joinSessionId prop.
+    // In our render below, we pass joinIdInput to LandingPage.
+    try {
+      await performJoin(joinIdInput, sessionManager.joinPassword);
+    } catch (err) { }
+  };
+
+  const performJoin = async (id: string, pw?: string) => {
+    try {
+      const { session, playerId, currentRound } = await sessionManager.joinGame(id, pw);
+
+      ws.joinSession(session.id, playerId);
+      gameState.setTargetColor(session.startColor);
+      gameState.setCurrentRound(currentRound);
+      gameState.setGamePhase('playing');
+      chat.clearMessages();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to join session');
+    }
+  };
+
+  const handlePlaySolo = () => {
+    sessionManager.generateNewUsername();
+    // Generate random start color locally
+    const r = Math.floor(Math.random() * 256);
+    const g = Math.floor(Math.random() * 256);
+    const b = Math.floor(Math.random() * 256);
+    const startColor = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+
+    gameState.startSoloGame(startColor);
+
+    // Create initial leaderboard entry
+    gameState.setLeaderboard([{
+      playerId: 'solo-player',
+      username: sessionManager.username || 'Player',
+      bestScore: 0,
+      totalScore: 0,
+      completedRounds: 0,
+      isFinished: false,
+      isWaiting: false
+    }]);
+  };
+
+  const handleSoloSubmitAdapter = (color: { r: number; g: number; b: number }, distance: number, score: number) => {
+    soloMode.submitSoloRound(score);
+  };
+
+  const handleQuit = () => {
+    if (sessionManager.session && sessionManager.playerId && !gameState.isSinglePlayer) {
+      ws.quitSession(sessionManager.session.id, sessionManager.playerId);
+    }
+    gameState.resetGame();
+    sessionManager.resetSession();
+    chat.clearMessages();
+    setError(null);
+  };
+
+  const handleRematch = async () => {
+    if (sessionManager.session && sessionManager.playerId) {
+      ws.requestNewMatch(sessionManager.session.id, sessionManager.playerId);
+    }
+  };
+
+  const handleVoteNewMatch = (vote: boolean) => {
+    if (sessionManager.session && sessionManager.playerId) {
+      ws.voteNewMatch(sessionManager.session.id, sessionManager.playerId, vote);
+      if (!vote) setShowNewMatchModal(false);
+    }
+  };
+
+  // --- WebSocket Effects ---
   useEffect(() => {
-    const cleanupLeaderboard = onLeaderboardUpdate((data) => {
-      setLeaderboard(data.leaderboard);
-      if (data.winner) {
-        setWinner(data.winner);
+    const cleanupLeaderboard = ws.onLeaderboardUpdate((data) => {
+      gameState.setLeaderboard(data.leaderboard);
+      if (data.winner) gameState.setWinner(data.winner);
+    });
+
+    const cleanupNextRound = ws.onNextRound((data) => {
+      gameState.setCurrentRound(data.roundNumber);
+      gameState.setTargetColor(data.targetColor);
+      gameState.setGamePhase('playing');
+    });
+
+    const cleanupChatMessage = ws.onChatMessage((message) => {
+      chat.addMessage(message);
+    });
+
+    const cleanupPlayerQuit = ws.onPlayerQuit((data) => {
+      gameState.setLeaderboard(prev => prev.filter(entry => entry.playerId !== data.playerId));
+    });
+
+    const cleanupSessionsUpdate = ws.onSessionsUpdate(() => {
+      if (gameState.gamePhase === 'landing') {
+        liveGames.refreshSessions();
       }
     });
 
-
-
-    const cleanupSessionComplete = onSessionComplete((data) => {
-      // In continuous mode, session_complete is not used
-      console.log('Session complete (legacy event):', data);
-    });
-
-    const cleanupNextRound = onNextRound((data) => {
-      // Auto-advance to next round
-      setCurrentRound(data.roundNumber);
-      setTargetColor(data.targetColor);
-      setGamePhase('playing');
-    });
-
-    const cleanupChatMessage = onChatMessage((message) => {
-      setChatMessages(prev => [...prev, message]);
-    });
-
-    const cleanupPlayerQuit = onPlayerQuit((data) => {
-      console.log('Player quit:', data);
-      // Remove player from leaderboard to prevent ghost players
-      setLeaderboard(prev => prev.filter(entry => entry.playerId !== data.playerId));
-    });
-
-    const cleanupSessionsUpdate = onSessionsUpdate(() => {
-      // Refresh active sessions when notified
-      if (gamePhase === 'landing') {
-        getActiveSessions().then(setActiveSessions).catch(console.error);
+    const cleanupPlayerJoined = ws.onPlayerJoined((data) => {
+      if (sessionManager.session) {
+        // Refresh session to get updated player counts
+        getSession(sessionManager.session.id).then(updated => {
+          sessionManager.setSession(updated);
+          // Leaderboard update should come via onLeaderboardUpdate usually, but we can force fetch
+          getLeaderboard(updated.id).then(lb => gameState.setLeaderboard(lb.leaderboard));
+        });
       }
     });
 
-    const cleanupPlayerJoined = onPlayerJoined((data) => {
-      console.log('Player joined:', data);
-      // Refresh session data to update player count and list
-      if (session) {
-        getSession(session.id).then(updatedSession => {
-          setSession(updatedSession);
-          // Also refresh leaderboard to show new player
-          getLeaderboard(session.id).then(data => setLeaderboard(data.leaderboard)).catch(console.error);
-        }).catch(console.error);
-      }
+    const cleanupError = ws.onError((err) => {
+      setError(err.message);
     });
 
-    const cleanupError = onError((error) => {
-      setError(error.message);
-    });
-
-    const cleanupNewMatchRequested = onNewMatchRequested((data) => {
+    const cleanupNewMatchRequested = ws.onNewMatchRequested(() => {
       setShowNewMatchModal(true);
     });
 
-    const cleanupNewMatchStarted = onNewMatchStarted((data) => {
-      setCurrentRound(data.roundNumber);
-      setTargetColor(data.targetColor);
-      setGamePhase('playing');
+    const cleanupNewMatchStarted = ws.onNewMatchStarted((data) => {
+      gameState.setCurrentRound(data.roundNumber);
+      gameState.setTargetColor(data.targetColor);
+      gameState.setGamePhase('playing');
       setShowNewMatchModal(false);
-      setWinner(null);
+      gameState.setWinner(null);
     });
 
-    const cleanupTurnStarted = onTurnStarted((data) => {
+    const cleanupTurnStarted = ws.onTurnStarted((data) => {
       setCurrentTurnPlayerId(data.currentTurnPlayerId);
       setTurnEndTime(data.turnEndTime);
-      setCurrentRound(data.roundNumber);
+      gameState.setCurrentRound(data.roundNumber);
     });
 
-    const cleanupStartCountdown = onStartCountdown((data) => {
+    const cleanupStartCountdown = ws.onStartCountdown((data) => {
       setCountdown(data.duration);
       const interval = setInterval(() => {
         setCountdown(prev => {
@@ -170,325 +227,87 @@ export default function Home() {
 
     return () => {
       cleanupLeaderboard();
-      cleanupPlayerJoined();
-      cleanupSessionComplete();
       cleanupNextRound();
       cleanupChatMessage();
       cleanupPlayerQuit();
       cleanupSessionsUpdate();
+      cleanupPlayerJoined();
       cleanupError();
       cleanupNewMatchRequested();
       cleanupNewMatchStarted();
       cleanupTurnStarted();
       cleanupStartCountdown();
     };
-  }, [onLeaderboardUpdate, onPlayerJoined, onSessionComplete, onNextRound, onChatMessage, onPlayerQuit, onSessionsUpdate, onError, onNewMatchRequested, onNewMatchStarted, onTurnStarted, onStartCountdown]);
-
-  // Poll for active sessions on landing page
-  useEffect(() => {
-    if (gamePhase !== 'landing') return;
-
-    const fetchSessions = async () => {
-      try {
-        // Only show loading on first fetch if we have no sessions
-        if (activeSessions.length === 0 && !isLoadingSessions) {
-          // We can skip setting loading true for background polls to avoid flicker
-          // or we can use a separate 'isFirstLoad' state. 
-          // But simpler: just don't set isLoadingSessions(true) here if we want to avoid the spinner.
-          // However, for the very first load, we might want it.
-          // Let's just remove the setIsLoadingSessions(true) from the interval calls?
-          // Or better: check if it's the first run.
-        }
-
-        const sessions = await getActiveSessions();
-        setActiveSessions(sessions);
-        setSessionsError(null);
-      } catch (err) {
-        console.error('Failed to fetch active sessions:', err);
-        setSessionsError(err instanceof Error ? err.message : 'Failed to load games');
-      } finally {
-        setIsLoadingSessions(false);
-      }
-    };
-
-    // Initial fetch with loading state
-    setIsLoadingSessions(true);
-    fetchSessions();
-
-    const interval = setInterval(async () => {
-      const sessions = await getActiveSessions();
-      setActiveSessions(sessions);
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [gamePhase]);
+  }, [ws, gameState, sessionManager, chat, liveGames]);
 
 
+  // Helper for LandingPage inputs
+  // We need to store temporary input state here to pass to sessionManager
+  const [joinIdInput, setJoinIdInput] = useState('');
 
-  // Poll for game state during gameplay (fallback/sync)
-  useEffect(() => {
-    if (gamePhase !== 'playing' || !session || isSinglePlayer) return;
+  // --- Render ---
 
-    const fetchGameState = async () => {
-      try {
-        // Fetch leaderboard
-        const leaderboardData = await getLeaderboard(session.id);
-        setLeaderboard(leaderboardData.leaderboard);
-        if (leaderboardData.winner) {
-          setWinner(leaderboardData.winner);
-        }
+  if (gameState.gamePhase === 'landing') {
+    return (
+      <div className="app-container">
+        <header className="app-header">
+          <h1 className="app-title animate-fadeIn">
+            <span className="title-gradient">Color Match Challenge</span>
+          </h1>
+          <p className="app-subtitle animate-fadeIn">
+            Test your color perception skills
+          </p>
+          {ws.isConnected && (
+            <div className="connection-status">
+              <span className="status-dot" />
+              Connected
+            </div>
+          )}
+        </header>
 
-        // Fetch chat history (optional, to ensure sync)
-        const history = await getChatHistory(session.id, 50);
-        // We don't want to overwrite local state if we have more messages, 
-        // but this helps if we missed some. 
-        // For simplicity, we'll rely on WS for chat mostly, but this could be used to backfill.
-      } catch (err) {
-        console.error('Failed to sync game state:', err);
-      }
-    };
+        <main className="app-main">
+          <LandingPage
+            username={sessionManager.username}
+            setUsername={sessionManager.setUsername}
+            generateUsername={sessionManager.generateNewUsername}
 
-    const interval = setInterval(fetchGameState, 5000);
+            maxPlayers={maxPlayers}
+            setMaxPlayers={setMaxPlayers}
+            totalRounds={gameState.totalRounds}
+            setTotalRounds={gameState.setTotalRounds}
+            sessionPassword={sessionManager.sessionPassword}
+            setSessionPassword={sessionManager.setSessionPassword}
+            isCreating={sessionManager.isLoading}
+            onCreateGame={handleCreateGame}
 
-    return () => clearInterval(interval);
-  }, [gamePhase, session, isSinglePlayer]);
+            joinSessionId={joinIdInput}
+            setJoinSessionId={setJoinIdInput}
+            joinPassword={sessionManager.joinPassword}
+            setJoinPassword={sessionManager.setJoinPassword}
+            isJoining={sessionManager.isLoading}
+            onJoinGame={() => performJoin(joinIdInput, sessionManager.joinPassword)}
 
-  const handleCreateSession = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+            onPlaySolo={handlePlaySolo}
 
-      // Validate and constrain input values
-      const validMaxPlayers = typeof maxPlayers === 'number' ? Math.min(20, Math.max(2, maxPlayers)) : 4;
-      const validTotalRounds = typeof totalRounds === 'number' ? Math.min(10, Math.max(1, totalRounds)) : 3;
+            activeSessions={liveGames.activeSessions}
+            isLoadingSessions={liveGames.isLoading}
+            sessionsError={liveGames.error}
+            onJoinFromList={(id, password) => performJoin(id, password)}
+            onRefreshSessions={liveGames.refreshSessions}
 
-      // Create session with password if provided
-      const newSession = await createSession(undefined, undefined, sessionPassword || undefined, validMaxPlayers, validTotalRounds);
-      setSession(newSession);
+            error={sessionManager.error || error}
+          />
+        </main>
+      </div>
+    );
+  }
 
-      // Use provided username or generate random one
-      const finalUsername = username || generateRandomUsername();
-      setUsername(finalUsername);
-
-      // Join the session
-      const joinResponse = await joinSession(newSession.id, finalUsername, sessionPassword || undefined);
-      setPlayerId(joinResponse.playerId);
-
-      // Join WebSocket room
-      wsJoinSession(newSession.id, joinResponse.playerId);
-
-      // Set target color for first round
-      setTargetColor(newSession.startColor);
-      setCurrentRound(1);
-      setGamePhase('playing');
-      setChatMessages([]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create session');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleJoinSession = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Get session details
-      const existingSession = await getSession(joinSessionId);
-      setSession(existingSession);
-
-      // Use provided username or generate random one
-      const finalUsername = username || generateRandomUsername();
-      setUsername(finalUsername);
-
-      // Join the session
-      const joinResponse = await joinSession(joinSessionId, finalUsername, password || undefined);
-      setPlayerId(joinResponse.playerId);
-      setCurrentRound(joinResponse.currentRound);
-
-      // Join WebSocket room
-      wsJoinSession(joinSessionId, joinResponse.playerId);
-
-      // Set target color
-      setTargetColor(existingSession.startColor);
-      setGamePhase('playing');
-      setChatMessages([]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to join session');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePlaySolo = () => {
-    setIsSinglePlayer(true);
-    setPlayerId('solo-player');
-
-    // Use provided username or generate random one
-    const finalUsername = username || generateRandomUsername();
-    setUsername(finalUsername);
-
-    // Generate random start color
-    const r = Math.floor(Math.random() * 256);
-    const g = Math.floor(Math.random() * 256);
-    const b = Math.floor(Math.random() * 256);
-    const startColor = rgbToHex(r, g, b);
-
-    setTargetColor(startColor);
-    setCurrentRound(1);
-    setSinglePlayerScore(0);
-    setGamePhase('playing');
-
-    // Create initial leaderboard entry for solo player
-    setLeaderboard([{
-      playerId: 'solo-player',
-      username: finalUsername,
-      bestScore: 0,
-      totalScore: 0,
-      completedRounds: 0,
-      isFinished: false,
-      isWaiting: false
-    }]);
-  };
-
-  const handleSubmitRound = async (
-    selectedColor: { r: number; g: number; b: number },
-    distance: number,
-    score: number
-  ) => {
-    if (!playerId) return;
-
-    try {
-      setIsLoading(true);
-
-      if (isSinglePlayer) {
-        // Handle single player logic
-        const newTotalScore = singlePlayerScore + score;
-        setSinglePlayerScore(newTotalScore);
-
-        // Update leaderboard
-        setLeaderboard([{
-          playerId: 'solo-player',
-          username: 'You',
-          bestScore: score,
-          totalScore: newTotalScore,
-          completedRounds: currentRound,
-          isFinished: currentRound >= 8,
-          isWaiting: false
-        }]);
-
-        setWinner({
-          playerId: 'solo-player',
-          username: 'You',
-          bestScore: score,
-          totalScore: newTotalScore,
-          completedRounds: currentRound,
-          isFinished: true,
-          isWaiting: false
-        });
-
-        // Check if game is complete (8 rounds)
-        if (currentRound >= 8) {
-          // Transition immediately to results, saving happens in SoloResults component
-          setGamePhase('solo_results');
-        } else {
-          setCurrentRound(currentRound + 1);
-          const newTargetColor = generateDistinctColor(targetColor, 50);
-          setTargetColor(newTargetColor);
-        }
-      } else {
-        // Handle multiplayer logic
-        if (!session) return;
-
-        const selectedHex = rgbToHex(selectedColor.r, selectedColor.g, selectedColor.b);
-
-        // Submit via WebSocket
-        wsSubmitRound(session.id, playerId, {
-          roundNumber: currentRound,
-          targetColor,
-          selectedColor: selectedHex,
-          distance,
-          score,
-        });
-
-        // Move to next round or finish
-        if (currentRound < (session?.totalRounds || 3)) {
-          setCurrentRound(currentRound + 1);
-          // Generate new target color that's significantly different from current
-          const newTargetColor = generateDistinctColor(targetColor, 50);
-          setTargetColor(newTargetColor);
-        } else {
-          // In continuous mode, move to waiting state
-          setGamePhase('waiting');
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit round');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePlayAgain = () => {
-    setGamePhase('landing');
-    setSession(null);
-    setPlayerId(null);
-    // Keep username
-    setCurrentRound(1);
-    setLeaderboard([]);
-    setWinner(null);
-    setError(null);
-    setIsSinglePlayer(false);
-    setSinglePlayerScore(0);
-    setChatMessages([]);
-    setPassword('');
-    setSessionPassword('');
-  };
-
-  const handleQuit = () => {
-    if (session && playerId && !isSinglePlayer) {
-      quitSession(session.id, playerId);
-    }
-    handlePlayAgain();
-  };
-
-  const handleRematch = async () => {
-    if (session && playerId) {
-      requestNewMatch(session.id, playerId);
-    }
-  };
-
-  const handleVoteNewMatch = (vote: boolean) => {
-    if (session && playerId) {
-      voteNewMatch(session.id, playerId, vote);
-      if (!vote) {
-        setShowNewMatchModal(false);
-      }
-    }
-  };
-
-  const handleSendMessage = (message: string) => {
-    if (session && playerId && username) {
-      sendChatMessage(session.id, playerId, username, message);
-    }
-  };
-
-  const generateUsername = () => {
-    setUsername(generateRandomUsername());
-  };
-
+  // Common Header for Game Modes
   return (
     <div className="app-container">
-      {/* Header */}
       <header className="app-header">
-        <h1 className="app-title animate-fadeIn">
-          <span className="title-gradient">Color Match Challenge</span>
-        </h1>
-        <p className="app-subtitle animate-fadeIn">
-          Test your color perception skills
-        </p>
-        {isConnected && (
+        <h1 className="app-title">Color Match Challenge</h1>
+        {ws.isConnected && (
           <div className="connection-status">
             <span className="status-dot" />
             Connected
@@ -497,242 +316,29 @@ export default function Home() {
       </header>
 
       <main className="app-main">
-        {/* Landing Phase */}
-        {gamePhase === 'landing' && (
-          <div className="landing-container animate-scaleIn">
-            <div className="landing-card glass">
-              <h2 className="landing-title">Ready to Play?</h2>
-              <p className="landing-description">
-                Match colors as closely as possible across 3 rounds. Compete with others in real-time!
-              </p>
-
-              <div className="username-section">
-                <div className="input-group">
-                  <input
-                    type="text"
-                    placeholder="Enter Username (optional)"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="text-input"
-                  />
-                  <button
-                    className="icon-button"
-                    onClick={generateUsername}
-                    title="Generate Random Name"
-                  >
-                    🎲
-                  </button>
-                </div>
-              </div>
-
-              <div className="action-buttons">
-                <div className="create-section">
-                  <div className="game-settings">
-                    <div className="setting-group">
-                      <label>Max Players (2-20)</label>
-                      <input
-                        type="number"
-                        min="2"
-                        max="20"
-                        value={maxPlayers}
-                        onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 2)}
-                        onFocus={(e) => e.target.select()}
-                        className="number-input"
-                      />
-                    </div>
-                    <div className="setting-group">
-                      <label>Total Rounds</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={totalRounds}
-                        onChange={(e) => setTotalRounds(parseInt(e.target.value) || 3)}
-                        onFocus={(e) => e.target.select()}
-                        className="number-input"
-                      />
-                    </div>
-                  </div>
-                  <div className="password-toggle">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!!sessionPassword}
-                        onChange={(e) => setSessionPassword(e.target.checked ? '1234' : '')}
-                      />
-                      Protect with password
-                    </label>
-                    {sessionPassword && (
-                      <input
-                        type="text"
-                        placeholder="Set Password"
-                        value={sessionPassword}
-                        onChange={(e) => setSessionPassword(e.target.value)}
-                        className="password-input"
-                      />
-                    )}
-                  </div>
-                  <button
-                    className="primary-button"
-                    onClick={handleCreateSession}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Creating...' : 'Create New Game'}
-                  </button>
-                </div>
-
-                <div className="divider">
-                  <span>or</span>
-                </div>
-
-                <div className="join-form">
-                  <div className="join-inputs">
-                    <input
-                      type="text"
-                      placeholder="Enter Session ID"
-                      value={joinSessionId}
-                      onChange={(e) => setJoinSessionId(e.target.value)}
-                      className="session-input"
-                    />
-                    {showPasswordInput && (
-                      <input
-                        type="password"
-                        placeholder="Session Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="password-input"
-                      />
-                    )}
-                  </div>
-                  <div className="join-actions">
-                    <button
-                      className="icon-button"
-                      onClick={() => setShowPasswordInput(!showPasswordInput)}
-                      title={showPasswordInput ? "Hide Password" : "Add Password"}
-                    >
-                      🔒
-                    </button>
-                    <button
-                      className="secondary-button"
-                      onClick={handleJoinSession}
-                      disabled={isLoading || !joinSessionId}
-                    >
-                      Join Game
-                    </button>
-                  </div>
-                </div>
-
-                <div className="divider">
-                  <span>or</span>
-                </div>
-
-                <button
-                  className="solo-button"
-                  onClick={handlePlaySolo}
-                  disabled={isLoading}
-                >
-                  Play Solo Mode
-                </button>
-              </div>
-
-              {error && (
-                <div className="error-message">
-                  ⚠️ {error}
-                </div>
-              )}
-            </div>
-
-            <LiveGamesList
-              sessions={activeSessions}
-              onJoin={async (sessionId, password) => {
-                try {
-                  setIsLoading(true);
-                  setError(null);
-
-                  // Get session details
-                  const existingSession = await getSession(sessionId);
-                  setSession(existingSession);
-
-                  // Use provided username or generate random one
-                  const finalUsername = username || generateRandomUsername();
-                  setUsername(finalUsername);
-
-                  // Join the session
-                  const joinResponse = await joinSession(sessionId, finalUsername, password);
-                  setPlayerId(joinResponse.playerId);
-                  setCurrentRound(joinResponse.currentRound);
-
-                  // Join WebSocket room
-                  wsJoinSession(sessionId, joinResponse.playerId);
-
-                  // Set target color
-                  setTargetColor(existingSession.startColor);
-                  setGamePhase('playing');
-                  setChatMessages([]);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Failed to join session');
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
-              onRefresh={() => {
-                setIsLoadingSessions(true);
-                getActiveSessions()
-                  .then((s) => {
-                    setActiveSessions(s);
-                    setSessionsError(null);
-                  })
-                  .catch((e) => setSessionsError(e instanceof Error ? e.message : 'Failed to refresh'))
-                  .finally(() => setIsLoadingSessions(false));
-              }}
-              isLoading={isLoadingSessions}
-              error={sessionsError}
-            />
-
-            <div className="features-grid">
-              <div className="feature-card glass-hover">
-                <div className="feature-icon">🎨</div>
-                <h3 className="feature-title">Color Perception</h3>
-                <p className="feature-description">
-                  Test your ability to match colors using RGB sliders
-                </p>
-              </div>
-              <div className="feature-card glass-hover">
-                <div className="feature-icon">⚡</div>
-                <h3 className="feature-title">Turn-Based Multiplayer</h3>
-                <p className="feature-description">
-                  Take turns competing with others in a horse race to the finish!
-                </p>
-              </div>
-              <div className="feature-card glass-hover">
-                <div className="feature-icon">🏆</div>
-                <h3 className="feature-title">Score & Win</h3>
-                <p className="feature-description">
-                  Earn points based on color accuracy and climb the ranks
-                </p>
-              </div>
-            </div>
-
-            <GlobalRanking />
-          </div>
-        )}
-
-        {/* Countdown Overlay */}
         {countdown !== null && (
           <div className="countdown-overlay">
             <div className="countdown-number">{countdown}</div>
           </div>
         )}
 
-        {/* Playing or Waiting Phase */}
-        {(gamePhase === 'playing' || gamePhase === 'waiting') && playerId && (
+        {/* Game Area */}
+        {gameState.gamePhase === 'solo_results' ? (
+          <SoloResults
+            username={sessionManager.username}
+            totalScore={gameState.singlePlayerScore}
+            completedRounds={8}
+            onPlayAgain={handleQuit} // "Quit" resets state correctly
+            onGoHome={handleQuit}
+          />
+        ) : (
           <div className="game-container">
-            {/* Waiting Banner - shown when player finished but others haven't */}
-            {gamePhase === 'waiting' && (
+            {gameState.gamePhase === 'waiting' && (
               <div className="waiting-banner animate-slideDown">
                 <div className="waiting-banner-content">
                   <span className="waiting-icon-small">⏳</span>
                   <span className="waiting-message">
-                    Round complete! Waiting for other players to finish...
+                    Round complete! Waiting for other players...
                   </span>
                 </div>
               </div>
@@ -740,35 +346,35 @@ export default function Home() {
 
             <div className="game-content">
               <GameBoard
-                targetColor={targetColor}
-                currentRound={currentRound}
-                totalRounds={isSinglePlayer ? 8 : (session?.totalRounds || 3)}
-                onSubmit={handleSubmitRound}
-                isSubmitting={isLoading}
-                disabled={gamePhase === 'waiting'}
+                targetColor={gameState.targetColor}
+                currentRound={gameState.currentRound}
+                totalRounds={gameState.isSinglePlayer ? 8 : (sessionManager.session?.totalRounds || 3)}
+                onSubmit={gameState.isSinglePlayer ? handleSoloSubmitAdapter : multiplayerMode.submitMultiplayerRound}
+                isSubmitting={sessionManager.isLoading} // Reusing loading state?
+                disabled={gameState.gamePhase === 'waiting'}
               />
             </div>
 
             <aside className="game-sidebar">
-              {!isSinglePlayer && session && (
+              {!gameState.isSinglePlayer && sessionManager.session && (
                 <>
-                  <SessionIdDisplay sessionId={session.id} />
+                  <SessionIdDisplay sessionId={sessionManager.session.id} />
 
                   <div className="session-card glass">
                     <div className="session-header">Player Info</div>
                     <div className="session-details">
                       <div className="detail-row">
                         <span className="detail-label">You:</span>
-                        <span className="detail-value">{username}</span>
+                        <span className="detail-value">{sessionManager.username}</span>
                       </div>
                       <div className="detail-row">
                         <span className="detail-label">Players:</span>
-                        <span className="detail-value">{leaderboard.length}/{maxPlayers}</span>
+                        <span className="detail-value">{gameState.leaderboard.length}/{maxPlayers}</span>
                       </div>
                       {currentTurnPlayerId && (
                         <div className="detail-row">
                           <span className="detail-label">
-                            {currentTurnPlayerId === playerId ? "🎯 Your Turn!" : "Spectating"}
+                            {currentTurnPlayerId === sessionManager.playerId ? "🎯 Your Turn!" : "Spectating"}
                           </span>
                         </div>
                       )}
@@ -779,94 +385,60 @@ export default function Home() {
                     <TurnTimer
                       endTime={turnEndTime}
                       onTimeout={() => {
-                        if (session) {
-                          reportTurnTimeout(session.id);
+                        if (sessionManager.session) {
+                          ws.reportTurnTimeout(sessionManager.session.id);
                         }
                       }}
-                      isActive={currentTurnPlayerId === playerId}
+                      isActive={currentTurnPlayerId === sessionManager.playerId}
                     />
                   )}
 
                   <Chat
-                    sessionId={session.id}
-                    playerId={playerId}
-                    username={username}
-                    messages={chatMessages}
-                    onSendMessage={handleSendMessage}
+                    sessionId={sessionManager.session.id}
+                    playerId={sessionManager.playerId || ''}
+                    username={sessionManager.username}
+                    messages={chat.messages}
+                    onSendMessage={(msg) => {
+                      if (sessionManager.session && sessionManager.playerId) {
+                        ws.sendChatMessage(sessionManager.session.id, sessionManager.playerId, sessionManager.username, msg);
+                      }
+                    }}
                   />
                 </>
               )}
 
-              {!isSinglePlayer ? (
+              {!gameState.isSinglePlayer ? (
                 <HorseRaceLeaderboard
-                  leaderboard={leaderboard}
+                  leaderboard={gameState.leaderboard}
                   currentTurnPlayerId={currentTurnPlayerId}
                 />
               ) : (
                 <HorseRaceLeaderboard
-                  leaderboard={leaderboard}
+                  leaderboard={gameState.leaderboard}
                   isSoloMode={true}
-                  currentScore={singlePlayerScore}
-                  playerName={username}
+                  currentScore={gameState.singlePlayerScore}
+                  playerName={sessionManager.username}
                 />
               )}
 
-              <GameControls
-                onQuit={handleQuit}
-                onRematch={handleRematch}
-                showRematch={!!winner}
-              />
+              <div className="mt-4">
+                <button className="secondary-button w-full" onClick={handleQuit}>
+                  {gameState.isSinglePlayer ? "Quit Solo Game" : "Quit Game"}
+                </button>
+              </div>
+
+              {/* Game Over / Rematch UI */}
+              {gameState.winner && !gameState.isSinglePlayer && (
+                <GameControls
+                  onQuit={handleQuit}
+                  onRematch={handleRematch}
+                  showRematch={true}
+                />
+              )}
             </aside>
           </div>
         )}
-
-        {/* Solo Results Phase */}
-        {gamePhase === 'solo_results' && (
-          <SoloResults
-            username={username}
-            totalScore={singlePlayerScore}
-            completedRounds={8}
-            onPlayAgain={() => {
-              setGamePhase('landing');
-              setSinglePlayerScore(0);
-              setCurrentRound(1);
-              setLeaderboard([]);
-            }}
-            onGoHome={() => {
-              setGamePhase('landing');
-              setSinglePlayerScore(0);
-              setCurrentRound(1);
-              setLeaderboard([]);
-              setIsSinglePlayer(false);
-            }}
-          />
-        )}
-        {/* New Match Modal */}
-        {showNewMatchModal && (
-          <div className="modal-overlay animate-fadeIn">
-            <div className="modal-content glass">
-              <h3 className="modal-title">New Match Requested</h3>
-              <p className="modal-text">
-                A player has requested to start a new match. Do you want to join?
-              </p>
-              <div className="modal-actions">
-                <button
-                  className="modal-btn confirm"
-                  onClick={() => handleVoteNewMatch(true)}
-                >
-                  ✅ Yes, Let's Play!
-                </button>
-                <button
-                  className="modal-btn cancel"
-                  onClick={() => handleVoteNewMatch(false)}
-                >
-                  ❌ No, Thanks
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </main >
+      </main>
 
       <style jsx>{`
         .app-container {

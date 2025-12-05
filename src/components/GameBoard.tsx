@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import ColorPicker from './ColorPicker';
-import { hexToRgb, rgbToHex, calculateDeltaE, calculateScore, getAccuracyDescription } from '../utils/colorUtils';
-import { playScoreSound } from '../utils/soundManager';
+import { rgbToHex } from '../utils/colorUtils';
+import { useGameBoard } from '../hooks/useGameBoard';
 
 interface GameBoardProps {
   targetColor: string;
@@ -22,40 +22,12 @@ export default function GameBoard({
   isSubmitting = false,
   disabled = false,
 }: GameBoardProps) {
-  const [selectedColor, setSelectedColor] = useState<{ r: number; g: number; b: number } | null>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [result, setResult] = useState<{
-    distance: number;
-    score: number;
-    accuracy: string;
-  } | null>(null);
-
-  const handleColorSelect = (color: { r: number; g: number; b: number }) => {
-    if (showResult || isSubmitting) return;
-
-    setSelectedColor(color);
-
-    const targetRgb = hexToRgb(targetColor);
-    if (!targetRgb) return;
-
-    const distance = calculateDeltaE(targetRgb, color);
-    const score = calculateScore(distance);
-    const accuracy = getAccuracyDescription(distance);
-
-    setResult({ distance, score, accuracy });
-    setShowResult(true);
-
-    // Play sound based on score
-    playScoreSound(score);
-
-    // Call parent callback after a short delay to show result
-    setTimeout(() => {
-      onSubmit(color, distance, score);
-      setShowResult(false);
-      setResult(null);
-      setSelectedColor(null);
-    }, 2500);
-  };
+  const {
+    selectedColor,
+    showResult,
+    result,
+    handleColorSelect
+  } = useGameBoard({ targetColor, onSubmit, isSubmitting });
 
   return (
     <div className="game-board">
