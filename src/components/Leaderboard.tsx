@@ -12,52 +12,65 @@ interface LeaderboardProps {
 
 export default function Leaderboard({ entries, currentPlayerId, winner, totalRounds = 3 }: LeaderboardProps) {
   return (
-    <div className="leaderboard">
-      <h2 className="leaderboard-title">
-        <span className="trophy-icon">🏆</span>
-        Leaderboard
-      </h2>
+    <>
+      {/* START: Leaderboard Component - src/components/Leaderboard.tsx */}
+      <div className="leaderboard">
+        {/* Leaderboard Title */}
+        <h2 className="leaderboard-title">
+          <span className="trophy-icon">🏆</span>
+          Leaderboard
+        </h2>
 
-      {winner && (
-        <div className="winner-announcement animate-scaleIn">
-          <div className="winner-badge">👑 Winner!</div>
-          <div className="winner-name">{winner.username}</div>
-          <div className="winner-score">{winner.bestScore} points</div>
-        </div>
-      )}
-
-      <div className="leaderboard-list">
-        {entries.map((entry, index) => (
-          <div
-            key={entry.playerId}
-            className={`leaderboard-entry ${entry.playerId === currentPlayerId ? 'current-player' : ''
-              } ${entry.isFinished ? 'finished' : 'playing'} animate-slideInUp`}
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <div className="entry-rank">
-              {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-            </div>
-            <div className="entry-info">
-              <div className="entry-name">
-                {entry.username}
-                {entry.playerId === currentPlayerId && <span className="you-badge">You</span>}
-              </div>
-              <div className="entry-progress">
-                Round {entry.isFinished ? totalRounds : Math.min(entry.completedRounds + 1, totalRounds)}/{totalRounds}
-                {entry.isFinished && <span className="finished-badge">✓ Done</span>}
-              </div>
-            </div>
-            <div className="entry-score">{entry.bestScore}</div>
-          </div>
-        ))}
-
-        {entries.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">👥</div>
-            <div className="empty-text">Waiting for players...</div>
+        {/* Winner Announcement - shows when game is complete */}
+        {winner && (
+          <div className="winner-announcement animate-scaleIn">
+            <div className="winner-badge">👑 Winner!</div>
+            <div className="winner-name">{winner.username}</div>
+            <div className="winner-score">{winner.bestScore} points</div>
           </div>
         )}
+
+        {/* Leaderboard Entries List */}
+        <div className="leaderboard-list">
+          {entries.map((entry, index) => (
+            <div
+              key={entry.playerId}
+              className={`leaderboard-entry ${entry.playerId === currentPlayerId ? 'current-player' : ''
+                } ${entry.isFinished ? 'finished' : 'playing'} animate-slideInUp`}
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              {/* Entry Rank */}
+              <div className="entry-rank">
+                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+              </div>
+
+              {/* Entry Info - username and progress */}
+              <div className="entry-info">
+                <div className="entry-name">
+                  {entry.username}
+                  {entry.playerId === currentPlayerId && <span className="you-badge">You</span>}
+                </div>
+                <div className="entry-progress">
+                  Round {entry.isFinished ? totalRounds : Math.min(entry.completedRounds + 1, totalRounds)}/{totalRounds}
+                  {entry.isFinished && <span className="finished-badge">✓ Done</span>}
+                </div>
+              </div>
+
+              {/* Entry Score */}
+              <div className="entry-score">{entry.bestScore}</div>
+            </div>
+          ))}
+
+          {/* Empty State - shown when no players */}
+          {entries.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-icon">👥</div>
+              <div className="empty-text">Waiting for players...</div>
+            </div>
+          )}
+        </div>
       </div>
+      {/* END: Leaderboard Component */}
 
       <style jsx>{`
         .leaderboard {
@@ -66,6 +79,7 @@ export default function Leaderboard({ entries, currentPlayerId, winner, totalRou
           gap: var(--spacing-lg);
           width: 100%;
           max-width: 400px;
+          padding: var(--spacing-lg);
         }
 
         .leaderboard-title {
@@ -132,7 +146,7 @@ export default function Leaderboard({ entries, currentPlayerId, winner, totalRou
 
         .leaderboard-entry:hover {
           background: var(--color-bg-card-hover);
-          transform: translateX(4px);
+          transform: translateY(-5px);
         }
 
         .leaderboard-entry.current-player {
@@ -229,6 +243,6 @@ export default function Leaderboard({ entries, currentPlayerId, winner, totalRou
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }
